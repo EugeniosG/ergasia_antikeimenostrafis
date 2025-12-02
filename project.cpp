@@ -11,8 +11,8 @@ void print_help() {
 
 int main(int argc, char* argv[]){
     
-    if (argv[0] == "--help") {
-        print_help()
+    if (argv[1] == "--help") {
+        print_help();
     }
 
     return 0;
