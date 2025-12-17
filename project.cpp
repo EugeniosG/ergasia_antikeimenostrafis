@@ -18,7 +18,7 @@ public:
     ~StaticObject() {
         cout << "StaticObject destroyed" << endl;
     }
-}
+};
 
 //Κλάση για κινητά αντικείμενα
 class MovingObject { 
@@ -32,7 +32,7 @@ public:
     ~MovingObject() {
         cout << "MovingObject destroyed" << endl;
     }
-}
+};
 
 //Κλάση για αυτόνομο αυτοκίνητο
 class Car : public MovingObject {
@@ -46,7 +46,7 @@ class Car : public MovingObject {
         ~Car() {
             cout << "Car destroyed" << endl;
         }
-}
+};
 
 
 //Αρχή της main 
