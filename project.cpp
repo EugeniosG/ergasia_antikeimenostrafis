@@ -3,6 +3,7 @@
 
 using namespace std;
 
+//Η βοηθιτικη συναρτηση που μπορει ο χρηστης να καλεσει απο την γραμμη εντολων.
 void print_help() {
     cout << "--seed <n>                     Randome seed (default current time)" << endl;
     cout << "--dimX <n>                     World width (default 40)" << endl;
@@ -21,7 +22,7 @@ void print_help() {
 
 
 
-//Κλάση για στατικά αντικείμενα
+//Κλάση για στατικά αντικείμενα.
 class StaticObject {
 private:
     int x, y;
@@ -36,7 +37,7 @@ public:
     }
 };
 
-//Κλάση για κινητά αντικείμενα
+//Κλάση για κινητά αντικείμενα.
 class MovingObject { 
 private:
     int x, y;
@@ -53,10 +54,10 @@ public:
     }
 };
 
-//Κλάση για αυτόνομο αυτοκίνητο
+//Κλάση για αυτόνομο αυτοκίνητο.
 class SelfDrivingCar : public MovingObject {
     private: 
-
+        int x, y;
         int speed;
         int direction;
     public:
@@ -69,10 +70,10 @@ class SelfDrivingCar : public MovingObject {
 };
 
 
-//Αρχή της main 
+//Αρχή της main.
 int main(int argc, char* argv[]){
     //βαζω τις default τιμες στις μεταβλητες και επιτα ελεγχω αν  μου εχει δωσει κατι διαφορετικο ο χρηστης στην γραμμη εντολων
-    //κατα την κληση του προγραμματος, και ενημερωνω την αντιστοιχη μεταβλητη
+    //κατα την κληση του προγραμματος, και ενημερωνω την αντιστοιχη μεταβλητη.
     int dimX = 40;
     int dimY = 40;
     int MovingCars = 3;
@@ -81,14 +82,17 @@ int main(int argc, char* argv[]){
     int STOP = 1;
     int TraficLights = 2;
     int ticks = 100;
-    //εκτυπωνω το βοηθητικο προς τον χρηστη αν το ζητησει
+
+    //εκτυπωνω το βοηθητικο προς τον χρηστη αν το ζητησει.
     if (strcmp(argv[1], "--help") == 0) {
         print_help();
+        return 0;
     }
 
-    //παιρνω τις παραμετρους απο την γραμμη εντολων που μου εχει δωσει ο χρηστης 
+    //παιρνω τις παραμετρους απο την γραμμη εντολων που μου εχει δωσει ο χρηστης.
     int i = 1; 
-    while(1){
+    bool flag = false;
+    while(i< argc){
         if (strcmp(argv[i], "--dimX")){
             dimX = stoi(argv[i+1]);
         }
@@ -124,11 +128,22 @@ int main(int argc, char* argv[]){
         if (strcmp(argv[i], "--gps") == 0){
             int x = stoi(argv[i+1]);
             int y = stoi(argv[i+2]);
-            break;;
+            flag = true;
+            break;
         }
 
         i++;
     }
+
+    //Σε περιπτωση που δεν μου δωσει ο χρηστης συντεταγμενες στην γραμμη εντολων κατα την κληση του προγραμματος 
+    //τερματιζω το προγραμμα και του εμφανιζω προειδοποιητικο μυνημα.
+    if (flag == false){
+        cout << "ERROR. Gps coordinates required" << endl;
+        cout << "Try Again !!!" <<endl;
+        return 1;
+    }
+
+    string world[dimX][dimY];
 
     return 0;
 }
