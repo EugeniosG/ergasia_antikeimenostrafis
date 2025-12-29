@@ -1,25 +1,7 @@
 #include <iostream>
-#include <string>
-
+#include <cstring>
+#include <tuple>
 using namespace std;
-
-//Η βοηθιτικη συναρτηση που μπορει ο χρηστης να καλεσει απο την γραμμη εντολων.
-void print_help() {
-    cout << "--seed <n>                     Randome seed (default current time)" << endl;
-    cout << "--dimX <n>                     World width (default 40)" << endl;
-    cout << "--dimY <n>                     World height (default 40)" << endl;
-    cout << "--numMovingCars <n>            Number of moving cars (default 3)" << endl;
-    cout << "--numMovingBikes <n>           Number of moving bikes (default 4)" << endl;
-    cout << "--numParkedCars <n>            Number of parked cars (default 7)" << endl;
-    cout << "--numStopSigns <n>             Number of signs STOP (deafault 1)" << endl;
-    cout << "--numTraficLights <n>          Number of trafic light (default 2)" <<  endl;
-    cout << "--simulatorticks <n>           Maximun simulator ticks (default 100)" << endl;
-    cout << "--gps <x1> <y1> [x2 y2  ...]   Gps target coordinates (required)" << endl;
-    cout << "--help                         Showing this message" << endl;
-    cout << "Usage:" << endl;
-    cout << "./project --seed <n> --dimX <n> --dimY <n> --numMovingCars <n> --numMovingBikes <n> --numParkedCars <n> --numStopSigns <n> --numTraficLights <n> --simulatorticks <n> --gps <x1> <y1> [x2 y2  ...] " << endl;
-}
-
 
 
 //Κλάση για στατικά αντικείμενα.
@@ -43,7 +25,7 @@ private:
     int x, y;
     string id;
     int glyph;
-    int speed;
+    int speed = 0;
     int direction;
 public:
     MovingObject() {
@@ -69,8 +51,40 @@ class SelfDrivingCar : public MovingObject {
         }
 };
 
+//Η βοηθιτικη συναρτηση που μπορει ο χρηστης να καλεσει απο την γραμμη εντολων.
+void print_help() {
+    cout << "--seed <n>                     Randome seed (default current time)" << endl;
+    cout << "--dimX <n>                     World width (default 40)" << endl;
+    cout << "--dimY <n>                     World height (default 40)" << endl;
+    cout << "--numMovingCars <n>            Number of moving cars (default 3)" << endl;
+    cout << "--numMovingBikes <n>           Number of moving bikes (default 4)" << endl;
+    cout << "--numParkedCars <n>            Number of parked cars (default 7)" << endl;
+    cout << "--numStopSigns <n>             Number of signs STOP (deafault 1)" << endl;
+    cout << "--numTraficLights <n>          Number of trafic light (default 2)" <<  endl;
+    cout << "--simulatorticks <n>           Maximun simulator ticks (default 100)" << endl;
+    cout << "--gps <x1> <y1> [x2 y2  ...]   Gps target coordinates (required)" << endl;
+    cout << "--help                         Showing this message" << endl;
+    cout << "Usage:" << endl;
+    cout << "./project --seed <n> --dimX <n> --dimY <n> --numMovingCars <n> --numMovingBikes <n> --numParkedCars <n> --numStopSigns <n> --numTraficLights <n> --simulatorticks <n> --gps <x1> <y1> [x2 y2  ...] " << endl;
+}
 
-//Αρχή της main.
+//Χρησημοποιω δυο συναρτησεις (accelerate - decelerate) για την αλλαγη της ταχυτητας του αυτονομου αυτοκινητου 
+//συμφωνα με τα "κοουτακια" που αλαζει σε καθε tick (0 για κατασταση STOPED - 1 για κατασταση HALF SPEED - 2 για κατασταση FULL SPEED)
+int accerlerate (int &speed){
+    return speed++ ;
+}
+
+int decelerate (int &speed){
+    return speed-- ;
+}
+
+tuple<int, int> NavigationSystem (int x, int y){
+    tuple<int, int>  destination(x, y);
+    return make_tuple(get<0>(destination), get<1>(destination));
+}
+
+//Αρχή της main 
+
 int main(int argc, char* argv[]){
     //βαζω τις default τιμες στις μεταβλητες και επιτα ελεγχω αν  μου εχει δωσει κατι διαφορετικο ο χρηστης στην γραμμη εντολων
     //κατα την κληση του προγραμματος, και ενημερωνω την αντιστοιχη μεταβλητη.
@@ -128,6 +142,9 @@ int main(int argc, char* argv[]){
         if (strcmp(argv[i], "--gps") == 0){
             int x = stoi(argv[i+1]);
             int y = stoi(argv[i+2]);
+            for(int j=i+3 ; j<argc-i ; j+=2){
+                NavigationSystem(stoi(argv[j]), stoi(argv[j++]));
+            }
             flag = true;
             break;
         }
@@ -142,7 +159,7 @@ int main(int argc, char* argv[]){
         cout << "Try Again !!!" <<endl;
         return 1;
     }
-
+    //διμηουργω ενα πινακα με strings για την προσομοιωση του "κοσμου"
     string world[dimX][dimY];
 
     return 0;
