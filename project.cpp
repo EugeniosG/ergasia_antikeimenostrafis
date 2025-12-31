@@ -73,7 +73,6 @@ void print_help() {
 int accerlerate (int &speed){
     return speed++ ;
 }
-
 int decelerate (int &speed){
     return speed-- ;
 }
@@ -83,8 +82,79 @@ tuple<int, int> NavigationSystem (int x, int y){
     return make_tuple(get<0>(destination), get<1>(destination));
 }
 
-//Αρχή της main 
+class sensor{
+    private:
+        //string world[][];
+        string type;
+    protected:
+        int posx;
+        int posy;
+    public:
+        sensor(string type, int posx, int posy)
+        :type(type), posx(posx), posy(posy){
+            cout << "constructoe called" << endl;
+        }
+        virtual ~sensor(){
+            cout << "destructor called" << endl;
+        }
+};
 
+class LidarSensor : public sensor{
+    public:
+        LidarSensor(int posx, int posy) : sensor("lidar", posx, posy){
+            cout << "lidar sensor created" << endl;
+        }
+        virtual ~LidarSensor(){
+            cout << "lidar sensor destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[9][9];
+            for(int i = (posx-4) ; i < posx+9 ; i++){
+                for(int j = (posy-4) ; j < posy+9 ; j++){
+                    area[i%posx][j%posy] = world[i][j];
+                }
+            }
+            return area[9][9];
+        }
+};
+
+class RadarSensor : public sensor{
+    public:
+        RadarSensor(int posx, int posy) : sensor("radar", posx, posy){
+            cout << "radar sensor created" << endl;
+        }
+        virtual ~RadarSensor(){
+            cout << "radar sensor destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[12];
+            for(int i = posx+1 ; i <= posx+12 ; i++){
+                area [i%(posx+1)] = world[i][posy];
+            }
+            return area[12];
+        }
+};
+
+class CameraSensor : public sensor{
+    public:
+        CameraSensor(int posx, int posy) : sensor("radar", posx, posy){
+            cout << "camera created" << endl;
+        }
+        virtual ~CameraSensor(){
+            cout << "camera destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[7][7];
+            for(int i = posx+1 ; i <= posx+7 ; i++){
+                for(int j = posy-3 ; j <= posy+3 ; j++){
+                    area[i%(posx+1)][j%(posy-3)] = world[i][j];
+                }
+            }
+            return area[7][7];
+        }
+};
+
+//Αρχή της main
 int main(int argc, char* argv[]){
     //βαζω τις default τιμες στις μεταβλητες και επιτα ελεγχω αν  μου εχει δωσει κατι διαφορετικο ο χρηστης στην γραμμη εντολων
     //κατα την κληση του προγραμματος, και ενημερωνω την αντιστοιχη μεταβλητη.
@@ -148,7 +218,6 @@ int main(int argc, char* argv[]){
             flag = true;
             break;
         }
-
         i++;
     }
 
