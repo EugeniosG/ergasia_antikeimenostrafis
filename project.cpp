@@ -3,15 +3,30 @@
 #include <tuple>
 using namespace std;
 
+struct Position {
+    int x;
+    int y;
+};
+
+class Object {
+    protected:
+        Position position;
+        string id;
+        int glyph;
+    public:
+        Object(string id, int glyph, Position pos = {0,0}) : id(id), glyph(glyph), position(pos) {
+            cout << "Object initialized" << endl;
+        }
+        ~Object() {
+            cout << "Object destroyed" << endl;
+        }
+}
 
 //Κλάση για στατικά αντικείμενα.
-class StaticObject {
-private:
-    int x, y;
-    string id;
-    int glyph;
+class StaticObject : public Object {
 public:
-    StaticObject() {
+    StaticObject(string id="", int glyph = 0, Position pos={0,0}) : Object(id, glyph, pos) {
+    {
         cout << "StaticObject initialized" << endl;
     }
     ~StaticObject() {
@@ -19,35 +34,154 @@ public:
     }
 };
 
+class ParkedCar : public StaticObject {
+    public:
+        ParkedCar(Position pos = {0,0}) : StaticObject("ParkedCar", 'P', pos) {
+            cout << "ParkedCar initialized" << endl;
+        }
+        ~ParkedCar() {
+            cout << "ParkedCar destroyed" << endl;
+        }
+};
+
+class StopSign : public StaticObject {
+    public:
+        StopSign(Position pos = {0,0}) : StaticObject("StopSign", 'S', pos) {
+            cout << "StopSign initialized" << endl;
+        }
+        ~StopSign() {
+            cout << "StopSign destroyed" << endl;
+        }
+};
+
+class TrafficLight : public StaticObject {
+    private:
+       string state;
+    public:
+        TrafficLight(Position pos = {0,0}, string State="RED") : StaticObject("TrafficLight", 'T', pos), state(State) {
+            cout << "TrafficLight initialized" << endl;
+        }
+        ~TrafficLight() {
+            cout << "TrafficLight destroyed" << endl;
+        }
+};
+
 //Κλάση για κινητά αντικείμενα.
-class MovingObject { 
-private:
-    int x, y;
-    string id;
-    int glyph;
-    int speed = 0;
-    int direction;
-public:
-    MovingObject() {
-        cout << "MovingObject initialized" << endl;
-    }
-    ~MovingObject() {
-        cout << "MovingObject destroyed" << endl;
-    }
+class MovingObject : public Object { 
+    protected:
+        int speed;
+        int direction;
+    public:
+        MovingObject(string id="", int glyph = 0, Position pos={0,0}, int Speed = 0, int Direction = 0) 
+        : Object(id, glyph, pos), speed(Speed), direction(Direction) {
+            cout << "MovingObject initialized" << endl;
+        }
+        ~MovingObject() {
+            cout << "MovingObject destroyed" << endl;
+        }
 };
 
 //Κλάση για αυτόνομο αυτοκίνητο.
 class SelfDrivingCar : public MovingObject {
     private: 
-        int x, y;
-        int speed;
-        int direction;
+        CameraSensor camera;
+        LidarSensor lidar;
+        RadarSensor radar;
     public:
-        SelfDrivingCar() {
+        SelfDrivingCar(Position pos = {0,0}) 
+        : MovingObject("SelfDrivingCar", 'C', pos), camera(pos.x, pos.y), lidar(pos.x, pos.y), radar(pos.x, pos.y) {
             cout << "Car initialized" << endl;
         }
         ~SelfDrivingCar() {
             cout << "Car destroyed" << endl;
+        }
+        void accelerate(){
+            speed++;
+        }
+        void decelerate(){
+            speed--;
+        }
+};
+
+class Bike : public MovingObject {
+    public:
+        Bike(Position pos = {0,0} ) : MovingObject("Bike", 'B', pos) {
+            cout << "Bike initialized" << endl;
+        }
+        ~Bike() {
+            cout << "Bike destroyed" << endl;
+        }
+}
+
+class Sensor{
+    private:
+        string world;
+        string type;
+    protected:
+        int posx;
+        int posy;
+    public:
+        Sensor(string type, int posx, int posy)
+        :type(type), posx(posx), posy(posy){
+            cout << "constructoe called" << endl;
+        }
+        virtual ~Sensor(){
+            cout << "destructor called" << endl;
+        }
+};
+
+class LidarSensor : public Sensor{
+    public:
+        LidarSensor(int posx, int posy) : Sensor("lidar", posx, posy){
+            cout << "lidar sensor created" << endl;
+        }
+        virtual ~LidarSensor(){
+            cout << "lidar sensor destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[9][9];
+            for(int i = (posx-4) ; i < posx+9 ; i++){
+                for(int j = (posy-4) ; j < posy+9 ; j++){
+                    area[i%posx][j%posy] = world[i][j];
+                }
+            }
+            return area[9][9];
+        }
+};
+
+class RadarSensor : public Sensor{
+    public:
+        RadarSensor(int posx, int posy) : Sensor("radar", posx, posy){
+            cout << "radar sensor created" << endl;
+        }
+        virtual ~RadarSensor(){
+            cout << "radar sensor destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[12];
+            for(int i = posx+1 ; i <= posx+12 ; i++){
+                area [i%(posx+1)] = world[i][posy];
+            }
+            return area[12];
+        }
+};
+
+class CameraSensor : public Sensor{
+    public:
+        CameraSensor(int posx, int posy) : Sensor("camera", posx, posy){
+            cout << "camera created" << endl;
+        }
+        virtual ~CameraSensor(){
+            cout << "camera destroyed" << endl;
+        }
+        string scaner(string world){
+            string area[7][7];
+            for(int i = posx+1 ; i <= posx+7 ; i++){
+                for(int j = posy-3 ; j <= posy+3 ; j++){
+                    area[i%(posx+1)][j%(posy-3)] = world[i][j];
+                }
+            }
+            return area[7][7];
         }
 };
 
@@ -70,89 +204,21 @@ void print_help() {
 
 //Χρησημοποιω δυο συναρτησεις (accelerate - decelerate) για την αλλαγη της ταχυτητας του αυτονομου αυτοκινητου 
 //συμφωνα με τα "κοουτακια" που αλαζει σε καθε tick (0 για κατασταση STOPED - 1 για κατασταση HALF SPEED - 2 για κατασταση FULL SPEED)
-int accerlerate (int &speed){
+
+/*int accerlerate (int &speed){
     return speed++ ;
 }
 int decelerate (int &speed){
     return speed-- ;
 }
+*/
 
 tuple<int, int> NavigationSystem (int x, int y){
     tuple<int, int>  destination(x, y);
     return make_tuple(get<0>(destination), get<1>(destination));
 }
 
-class sensor{
-    private:
-        //string world[][];
-        string type;
-    protected:
-        int posx;
-        int posy;
-    public:
-        sensor(string type, int posx, int posy)
-        :type(type), posx(posx), posy(posy){
-            cout << "constructoe called" << endl;
-        }
-        virtual ~sensor(){
-            cout << "destructor called" << endl;
-        }
-};
 
-class LidarSensor : public sensor{
-    public:
-        LidarSensor(int posx, int posy) : sensor("lidar", posx, posy){
-            cout << "lidar sensor created" << endl;
-        }
-        virtual ~LidarSensor(){
-            cout << "lidar sensor destroyed" << endl;
-        }
-        string scaner(string world){
-            string area[9][9];
-            for(int i = (posx-4) ; i < posx+9 ; i++){
-                for(int j = (posy-4) ; j < posy+9 ; j++){
-                    area[i%posx][j%posy] = world[i][j];
-                }
-            }
-            return area[9][9];
-        }
-};
-
-class RadarSensor : public sensor{
-    public:
-        RadarSensor(int posx, int posy) : sensor("radar", posx, posy){
-            cout << "radar sensor created" << endl;
-        }
-        virtual ~RadarSensor(){
-            cout << "radar sensor destroyed" << endl;
-        }
-        string scaner(string world){
-            string area[12];
-            for(int i = posx+1 ; i <= posx+12 ; i++){
-                area [i%(posx+1)] = world[i][posy];
-            }
-            return area[12];
-        }
-};
-
-class CameraSensor : public sensor{
-    public:
-        CameraSensor(int posx, int posy) : sensor("radar", posx, posy){
-            cout << "camera created" << endl;
-        }
-        virtual ~CameraSensor(){
-            cout << "camera destroyed" << endl;
-        }
-        string scaner(string world){
-            string area[7][7];
-            for(int i = posx+1 ; i <= posx+7 ; i++){
-                for(int j = posy-3 ; j <= posy+3 ; j++){
-                    area[i%(posx+1)][j%(posy-3)] = world[i][j];
-                }
-            }
-            return area[7][7];
-        }
-};
 
 //Αρχή της main
 int main(int argc, char* argv[]){
