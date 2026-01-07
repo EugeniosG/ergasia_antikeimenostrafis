@@ -116,7 +116,7 @@ class Bike : public MovingObject {
         ~Bike() {
             cout << "Bike destroyed" << endl;
         }
-}
+};
 
 //Βασική κλάση για τους αισθητήρες.
 class Sensor{
@@ -148,11 +148,10 @@ class LidarSensor : public Sensor{
             
             for(int i = (posx-4) ; i < posx+4 ; i++){
                 for(int j = (posy-4) ; j < posy+4 ; j++){
-                    x = posx + i;
-                    y = posy + j;
+                    area[i%(posx-4)][j%(posy-4)] = world[i][j];
                 }
             }
-            return area;
+            return area[9][9];
         }
 };
 
