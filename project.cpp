@@ -25,8 +25,13 @@ class Object {
             cout << "Object destroyed" << endl;
         }
 
-         int getPosition() { 
+        Position getPosition() { 
             return position;
+        }
+
+        void setPosition(int x, int y){
+            position.x = x;
+            position.y = y;
         }
 };
 
@@ -150,7 +155,7 @@ class LidarSensor : public Sensor{
         }
 
         vector<vector<string>> scaner(string world){  
-            vector<vector<string>> area(9, vector<string>(9,""))       
+            vector<vector<string>> area(9, vector<string>(9,"")) ;   
             for(int i = (x-4) ; i < x+4 ; i++){
                 for(int j = (y-4) ; j < y+4 ; j++){
                     if (i > 0 && i <= )
@@ -312,6 +317,8 @@ int main(int argc, char* argv[]){
     
     //διμηουργω ενα πινακα με strings για την προσομοιωση του "κοσμου"
     vector<vector<string>> world(dimX, vector<string>(dimY, ""));
+    SelfDrivingCar ferrari;
+    ferrari.setPosition(x, y);
 
     return 0;
 }
