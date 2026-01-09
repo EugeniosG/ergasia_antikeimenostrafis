@@ -10,8 +10,117 @@ struct Position {
     int y;
 };
 
+//Βασική κλάση για όλα τα αντικείμενα στον κόσμο.
+class Object {
+    protected:
+        Position position;
+        string id;
+        string glyph;
+    public:
+
+        Object() : id(""), glyph(""), position{0,0} {
+            cout << "Object initialized" << endl;
+        }
+        Object(string id, string glyph, Position pos ) : id(id), glyph(glyph), position(pos) {
+            cout << "Object initialized" << endl;
+        }
+        ~Object() {
+            cout << "Object destroyed" << endl;
+        }
+
+        void setPosition(int x, int y){
+            position.x = x;
+            position.y = y;
+        }
+
+         Position getPosition() { 
+            return position;
+        }   
+};
+
+//Κλάση για στατικά αντικείμενα.
+class StaticObject : public Object {
+public:
+    StaticObject(string id, string glyph, Position pos) : Object(id, glyph, pos) {
+        cout << "StaticObject initialized" << endl;
+    }
+    ~StaticObject() {
+        cout << "StaticObject destroyed" << endl;
+    }
+};
+
+//Κλάση για παρκαρισμένα αυτοκίνητα.
+class ParkedCar : public StaticObject {
+    public:
+        ParkedCar(string id="", string glyph = "", Position pos={0,0}) : StaticObject("ParkedCar", "P", {0,0}) {
+            cout << "ParkedCar initialized" << endl;
+        }
+        ~ParkedCar() {
+            cout << "ParkedCar destroyed" << endl;
+        }
+};
+
+//Κλάση για τα σήματα STOP.
+class StopSign : public StaticObject {
+    public:
+        StopSign() : StaticObject("StopSign", "S", {0,0}) {
+            cout << "StopSign initialized" << endl;
+        }
+        ~StopSign() {
+            cout << "StopSign destroyed" << endl;
+        }
+};
+
+//Κλάση για τα φανάρια.
+class TrafficLight : public StaticObject {
+    private:
+       string state;
+    public:
+        TrafficLight(Position pos = {0,0}, string State="RED") : StaticObject("TrafficLight", "T", pos), state(State) {
+            cout << "TrafficLight initialized" << endl;
+        }
+        ~TrafficLight() {
+            cout << "TrafficLight destroyed" << endl;
+        }
+};
+
+//Κλάση για κινητά αντικείμενα.
+class MovingObject : public Object { 
+    protected:
+        int speed;
+        string direction;
+    public:
+        MovingObject(string id, string glyph, Position pos, int Speed = 0, string Direction = "") 
+        : Object(id, glyph, pos), speed(Speed), direction(Direction) {
+            cout << "MovingObject initialized" << endl;
+        }
+        ~MovingObject() {
+            cout << "MovingObject destroyed" << endl;
+        }
+};
+
+//Κλάση για αυτόνομο αυτοκίνητο.
+class SelfDrivingCar : public MovingObject {
+    private:
+        vector<vector<string>> world; 
+    public:
+        SelfDrivingCar(Position pos = {0,0}) 
+        : MovingObject("SelfDrivingCar", "C", pos) {
+            cout << "Car initialized" << endl;
+        }
+        ~SelfDrivingCar() {
+            cout << "Car destroyed" << endl;
+        }
+
+        void accelerate(){
+            speed++;
+        }
+        void decelerate(){
+            speed--;
+        }
+};
 //Βασική κλάση για τους αισθητήρες.
-class Sensor{
+class Sensor : public SelfDrivingCar{
     protected:
         Position position;
         string type;
@@ -91,113 +200,6 @@ class CameraSensor : public Sensor{
         }
 };
 
-//Βασική κλάση για όλα τα αντικείμενα στον κόσμο.
-class Object {
-    protected:
-        Position position;
-        string id;
-        string glyph;
-    public:
-
-        Object() : id(""), glyph(""), position{0,0} {
-            cout << "Object initialized" << endl;
-        }
-        Object(string id, string glyph, Position pos ) : id(id), glyph(glyph), position(pos) {
-            cout << "Object initialized" << endl;
-        }
-        ~Object() {
-            cout << "Object destroyed" << endl;
-        }
-
-         Position getPosition() { 
-            return position;
-        }   
-};
-
-//Κλάση για στατικά αντικείμενα.
-class StaticObject : public Object {
-public:
-    StaticObject(string id, string glyph, Position pos) : Object(id, glyph, pos) {
-        cout << "StaticObject initialized" << endl;
-    }
-    ~StaticObject() {
-        cout << "StaticObject destroyed" << endl;
-    }
-};
-
-//Κλάση για παρκαρισμένα αυτοκίνητα.
-class ParkedCar : public StaticObject {
-    public:
-        ParkedCar(string id="", string glyph = "", Position pos={0,0}) : StaticObject("ParkedCar", "P", {0,0}) {
-            cout << "ParkedCar initialized" << endl;
-        }
-        ~ParkedCar() {
-            cout << "ParkedCar destroyed" << endl;
-        }
-};
-
-//Κλάση για τα σήματα STOP.
-class StopSign : public StaticObject {
-    public:
-        StopSign() : StaticObject("StopSign", "S", {0,0}) {
-            cout << "StopSign initialized" << endl;
-        }
-        ~StopSign() {
-            cout << "StopSign destroyed" << endl;
-        }
-};
-
-//Κλάση για τα φανάρια.
-class TrafficLight : public StaticObject {
-    private:
-       string state;
-    public:
-        TrafficLight(Position pos = {0,0}, string State="RED") : StaticObject("TrafficLight", "T", pos), state(State) {
-            cout << "TrafficLight initialized" << endl;
-        }
-        ~TrafficLight() {
-            cout << "TrafficLight destroyed" << endl;
-        }
-};
-
-//Κλάση για κινητά αντικείμενα.
-class MovingObject : public Object { 
-    protected:
-        int speed;
-        string direction;
-    public:
-        MovingObject(string id, string glyph, Position pos, int Speed = 0, string Direction = "") 
-        : Object(id, glyph, pos), speed(Speed), direction(Direction) {
-            cout << "MovingObject initialized" << endl;
-        }
-        ~MovingObject() {
-            cout << "MovingObject destroyed" << endl;
-        }
-};
-
-//Κλάση για αυτόνομο αυτοκίνητο.
-class SelfDrivingCar : public MovingObject {
-    private: 
-        CameraSensor camera;
-        LidarSensor lidar;
-        RadarSensor radar;
-    public:
-        SelfDrivingCar(Position pos = {0,0}) 
-        : MovingObject("SelfDrivingCar", "C", pos), camera(position.x, position.y), lidar(position.x, position.y), 
-        radar(position.x, position.y) {
-            cout << "Car initialized" << endl;
-        }
-        ~SelfDrivingCar() {
-            cout << "Car destroyed" << endl;
-        }
-        void accelerate(){
-            speed++;
-        }
-        void decelerate(){
-            speed--;
-        }
-};
-
 //κλάση για τα ποδήλατα.
 class Bike : public MovingObject {
     public:
@@ -228,12 +230,20 @@ void print_help() {
     cout << "./project --seed <n> --dimX <n> --dimY <n> --numMovingCars <n> --numMovingBikes <n> --numParkedCars <n> --numStopSigns <n> --numTraficLights <n> --simulatorticks <n> --gps <x1> <y1> [x2 y2  ...] " << endl;
 }
 
+void makedecision(){
+
+}
+
+void SensorFusionEngine(vector<string> radar, vector<vector<string>> lidar, vector<vector<string>> camera, tuple<int, int> destination){
+    makedecision();
+}
+
 tuple<int, int> NavigationSystem (int x, int y) { 
     tuple<int, int>  destination(x, y);
     return make_tuple(get<0>(destination), get<1>(destination));
 }
 
-
+// vector<vector<string>>world(40, vector<string>(40));
 
 //Αρχή της main
 int main(int argc, char* argv[]){
@@ -256,6 +266,8 @@ int main(int argc, char* argv[]){
 
     //παιρνω τις παραμετρους απο την γραμμη εντολων που μου εχει δωσει ο χρηστης.
     int i = 1; 
+    int x, y;
+    vector <tuple<int, int>>destinations;
     bool flag = false;
     while(i< argc){
         if (strcmp(argv[i], "--dimX")){
@@ -291,10 +303,10 @@ int main(int argc, char* argv[]){
         }
 
         if (strcmp(argv[i], "--gps") == 0){
-            int x = stoi(argv[i+1]);
-            int y = stoi(argv[i+2]);
+            x = stoi(argv[i+1]);
+            y = stoi(argv[i+2]);
             for(int j=i+3 ; j<argc-i ; j+=2){
-                NavigationSystem(stoi(argv[j]), stoi(argv[j++]));
+                destinations.push_back(NavigationSystem(stoi(argv[j]), stoi(argv[j++])));
             }
             flag = true;
             break;
@@ -312,6 +324,21 @@ int main(int argc, char* argv[]){
     
     //διμηουργω ενα πινακα με strings για την προσομοιωση του "κοσμου"
     vector<vector<string>> world(dimX, vector<string>(dimY, ""));
+    SelfDrivingCar ferrari;
+    ferrari.setPosition(x, y);
+    CameraSensor camera(x, y);
+    RadarSensor radar(x, y);
+    LidarSensor lidar(x, y);
+    SensorFusionEngine(
+        
+        radar.scaner(world, x, y),
+        lidar.scaner(world, x, y),
+        camera.scaner(world, x, y),
+        make_tuple (get<0>(destinations[0]),get<1>(destinations[0]))
+        /*ferrari.get_camera(ferrari.getPosition()),
+        ferrari.get_lidar(ferrari.getPosition()),
+        ferrari.get_radar(ferrari.getPosition()),*/
+    );
 
     return 0;
 }
