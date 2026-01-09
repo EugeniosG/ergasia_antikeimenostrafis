@@ -10,6 +10,95 @@ struct Position {
     int y;
 };
 
+//Βασική κλάση για τους αισθητήρες.
+class Sensor{
+    protected:
+        Position position;
+        string type;
+    public:
+        Sensor(string type, int x, int y)
+        :type(type), position {x, y} {
+            cout << "constructoe called" << endl;
+        }
+        virtual ~Sensor() {
+            cout << "destructor called" << endl;
+        }
+
+        void setPosition(int x, int y) {
+            position.x = x;
+            position.y = y;
+        }
+
+};
+
+//Κλάση για τον αισθητήρα Lidar.
+class LidarSensor : public Sensor{
+    public:
+        LidarSensor(int x, int y) : Sensor("lidar", x, y){
+            cout << "lidar sensor created" << endl;
+        }
+        virtual ~LidarSensor() {
+            cout << "lidar sensor destroyed" << endl;
+        }
+
+        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y){  
+            vector<vector<string>> area(9, vector<string>(9,""));     
+            for(int i = (x-4) ; i < x+4 ; i++) {
+                for(int j = (y-4) ; j < y+4 ; j++){
+                    if (i >= 0 && i < world.size() && j >= 0 && j < world[0].size()) {
+                    area[i-(x-4)][j-(y-4)] = world[i][j];
+                    } 
+                }
+            }   
+            return area;
+        
+        }
+    };
+
+
+//Κλάση για τον αισθητήρα Radar.
+class RadarSensor : public Sensor{
+    public:
+        RadarSensor(int x, int y) : Sensor("radar", x, y){
+            cout << "radar sensor created" << endl;
+        }
+        virtual ~RadarSensor() {
+            cout << "radar sensor destroyed" << endl;
+        }
+        vector<string> scaner(vector<vector<string>> &world, int x, int y) {
+            vector<string> area(12);
+            for(int i = x+1 ; i <= x+12 ; i++){
+                if (i >= 0 && i < world.size()) {
+                area[i-(x+1)] = world[i][y];
+                }
+            }
+             return area;
+        }
+};
+
+
+//Κλάση για την κάμερα.
+class CameraSensor : public Sensor{
+    public:
+        CameraSensor(int x, int y) : Sensor("camera", x, y){
+            cout << "camera created" << endl;
+        }
+        virtual ~CameraSensor() {
+            cout << "camera destroyed" << endl;
+        }
+        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y) {
+             vector<vector<string>> area(7, vector<string>(7,""));
+            for(int i = x+1 ; i <= x+7 ; i++){
+                for(int j = y-3 ; j <= y+3 ; j++){
+                    if (i >= 0 && i < world.size() && j >= 0 && j < world[0].size()) {
+                    area[i-(x+1)][j-(y-3)] = world[i][j];
+                    }   
+                }
+            }
+            return area;
+        }
+};
+
 //Βασική κλάση για όλα τα αντικείμενα στον κόσμο.
 class Object {
     protected:
@@ -103,13 +192,37 @@ class MovingObject : public Object {
 class SelfDrivingCar : public MovingObject {
     private:
         vector<vector<string>> world; 
+        CameraSensor camera;
+        LidarSensor lidar;
+        RadarSensor radar;
     public:
         SelfDrivingCar(Position pos = {0,0}) 
-        : MovingObject("SelfDrivingCar", "C", pos) {
+        : MovingObject("SelfDrivingCar", "C", pos), camera(position.x, position.y), lidar(position.x, position.y), 
+        radar(position.x, position.y) {
             cout << "Car initialized" << endl;
         }
         ~SelfDrivingCar() {
             cout << "Car destroyed" << endl;
+        }
+
+        void setPosition(int x, int y){
+            position.x = x;
+            position.y = y;
+            camera.setPosition(x, y);
+            lidar.setPosition(x, y);
+            radar.setPosition(x, y);
+}
+
+        CameraSensor& get_camera() {
+            return camera;
+        }
+
+        LidarSensor& get_lidar() {
+            return lidar;
+        }
+
+        RadarSensor& get_radar() {
+            return radar;
         }
 
         void accelerate(){
@@ -117,86 +230,6 @@ class SelfDrivingCar : public MovingObject {
         }
         void decelerate(){
             speed--;
-        }
-};
-//Βασική κλάση για τους αισθητήρες.
-class Sensor : public SelfDrivingCar{
-    protected:
-        Position position;
-        string type;
-    public:
-        Sensor(string type, int x, int y)
-        :type(type), position {x, y} {
-            cout << "constructoe called" << endl;
-        }
-        virtual ~Sensor() {
-            cout << "destructor called" << endl;
-        }
-};
-
-//Κλάση για τον αισθητήρα Lidar.
-class LidarSensor : public Sensor{
-    public:
-        LidarSensor(int x, int y) : Sensor("lidar", x, y){
-            cout << "lidar sensor created" << endl;
-        }
-        virtual ~LidarSensor() {
-            cout << "lidar sensor destroyed" << endl;
-        }
-
-        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y){  
-            vector<vector<string>> area(9, vector<string>(9,""));     
-            for(int i = (x-4) ; i < x+4 ; i++) {
-                for(int j = (y-4) ; j < y+4 ; j++){
-                    if (i > 0 && i <= world.size() && j >= 0 && j < world[0].size()) {
-                    area[i%(x-4)][j%(y-4)] = world[i][j];
-                    }
-                }
-            }
-            return area;
-        }
-};
-
-//Κλάση για τον αισθητήρα Radar.
-class RadarSensor : public Sensor{
-    public:
-        RadarSensor(int x, int y) : Sensor("radar", x, y){
-            cout << "radar sensor created" << endl;
-        }
-        virtual ~RadarSensor() {
-            cout << "radar sensor destroyed" << endl;
-        }
-        vector<string> scaner(vector<vector<string>> &world, int x, int y) {
-            vector<string> area(12);
-            for(int i = x+1 ; i <= x+12 ; i++){
-                if (i > 0 && i <= world.size()) {
-                area[i%(x+1)] = world[i][y];
-                }
-            }
-             return area;
-        }
-};
-
-
-//Κλάση για την κάμερα.
-class CameraSensor : public Sensor{
-    public:
-        CameraSensor(int x, int y) : Sensor("camera", x, y){
-            cout << "camera created" << endl;
-        }
-        virtual ~CameraSensor() {
-            cout << "camera destroyed" << endl;
-        }
-        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y) {
-             vector<vector<string>> area(7, vector<string>(7,""));
-            for(int i = x+1 ; i <= x+7 ; i++){
-                for(int j = y-3 ; j <= y+3 ; j++){
-                    if (i > 0 && i <= world.size() && j >= 0 && j < world[0].size()) {
-                    area[i%(x+1)][j%(y-3)] = world[i][j];
-                    }   
-                }
-            return area;
-            }
         }
 };
 
@@ -230,18 +263,18 @@ void print_help() {
     cout << "./project --seed <n> --dimX <n> --dimY <n> --numMovingCars <n> --numMovingBikes <n> --numParkedCars <n> --numStopSigns <n> --numTraficLights <n> --simulatorticks <n> --gps <x1> <y1> [x2 y2  ...] " << endl;
 }
 
-void makedecision(){
-
-}
-
-void SensorFusionEngine(vector<string> radar, vector<vector<string>> lidar, vector<vector<string>> camera, tuple<int, int> destination){
-    makedecision();
-}
 
 tuple<int, int> NavigationSystem (int x, int y) { 
     tuple<int, int>  destination(x, y);
     return make_tuple(get<0>(destination), get<1>(destination));
 }
+
+void SensorFusionEngine(RadarSensor& radar, LidarSensor& lidar, CameraSensor& camera, tuple<int, int> destination){
+
+}
+
+
+
 
 // vector<vector<string>>world(40, vector<string>(40));
 
@@ -259,7 +292,7 @@ int main(int argc, char* argv[]){
     int ticks = 100;
 
     //εκτυπωνω το βοηθητικο προς τον χρηστη αν το ζητησει.
-    if (strcmp(argv[1], "--help") == 0) {
+    if (argc > 1 && strcmp(argv[1], "--help") == 0) {
         print_help();
         return 0;
     }
@@ -270,11 +303,11 @@ int main(int argc, char* argv[]){
     vector <tuple<int, int>>destinations;
     bool flag = false;
     while(i< argc){
-        if (strcmp(argv[i], "--dimX")){
+        if (strcmp(argv[i], "--dimX") == 0){
             dimX = stoi(argv[i+1]);
         }
 
-        if (strcmp(argv[i], "--dimY")){
+        if (strcmp(argv[i], "--dimY") == 0){
             dimY = stoi(argv[i+1]);
         }
 
@@ -305,8 +338,8 @@ int main(int argc, char* argv[]){
         if (strcmp(argv[i], "--gps") == 0){
             x = stoi(argv[i+1]);
             y = stoi(argv[i+2]);
-            for(int j=i+3 ; j<argc-i ; j+=2){
-                destinations.push_back(NavigationSystem(stoi(argv[j]), stoi(argv[j++])));
+            for(int j=i+3 ; j<argc ; j+=2){
+                destinations.push_back(NavigationSystem(stoi(argv[j]), stoi(argv[j+1])));
             }
             flag = true;
             break;
@@ -326,18 +359,13 @@ int main(int argc, char* argv[]){
     vector<vector<string>> world(dimX, vector<string>(dimY, ""));
     SelfDrivingCar ferrari;
     ferrari.setPosition(x, y);
-    CameraSensor camera(x, y);
-    RadarSensor radar(x, y);
-    LidarSensor lidar(x, y);
     SensorFusionEngine(
-        
-        radar.scaner(world, x, y),
-        lidar.scaner(world, x, y),
-        camera.scaner(world, x, y),
-        make_tuple (get<0>(destinations[0]),get<1>(destinations[0]))
-        /*ferrari.get_camera(ferrari.getPosition()),
-        ferrari.get_lidar(ferrari.getPosition()),
-        ferrari.get_radar(ferrari.getPosition()),*/
+    
+        ferrari.get_radar(),
+        ferrari.get_lidar(),
+        ferrari.get_camera(),
+        destinations[0]
+
     );
 
     return 0;
