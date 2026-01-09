@@ -57,14 +57,14 @@ class RadarSensor : public Sensor{
         virtual ~RadarSensor() {
             cout << "radar sensor destroyed" << endl;
         }
-        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y) {
+        vector<string> scaner(vector<vector<string>> &world, int x, int y) {
             vector<string> area(12);
             for(int i = x+1 ; i <= x+12 ; i++){
-                if (i > 0 && i <= world.size() && j >= 0 && j < world[0].size()) {
-                area [i%(x+1)] = world[i][y];
+                if (i > 0 && i <= world.size()) {
+                area[i%(x+1)] = world[i][y];
                 }
-            return area;
             }
+             return area;
         }
 };
 
@@ -79,14 +79,15 @@ class CameraSensor : public Sensor{
             cout << "camera destroyed" << endl;
         }
         vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y) {
-             vector<vector<string>> area(7, vector<string>(7,""))
+             vector<vector<string>> area(7, vector<string>(7,""));
             for(int i = x+1 ; i <= x+7 ; i++){
                 for(int j = y-3 ; j <= y+3 ; j++){
                     if (i > 0 && i <= world.size() && j >= 0 && j < world[0].size()) {
                     area[i%(x+1)][j%(y-3)] = world[i][j];
+                    }   
                 }
-            }
             return area;
+            }
         }
 };
 
@@ -98,7 +99,10 @@ class Object {
         string glyph;
     public:
 
-        Object(string id, string glyph, Position pos = {0,0}) : id(id), glyph(glyph), position(pos) {
+        Object() : id(""), glyph(""), position{0,0} {
+            cout << "Object initialized" << endl;
+        }
+        Object(string id, string glyph, Position pos ) : id(id), glyph(glyph), position(pos) {
             cout << "Object initialized" << endl;
         }
         ~Object() {
@@ -107,13 +111,13 @@ class Object {
 
          Position getPosition() { 
             return position;
-        }
+        }   
 };
 
 //Κλάση για στατικά αντικείμενα.
 class StaticObject : public Object {
 public:
-    StaticObject(string id="", string glyph = "", Position pos={0,0}) : Object(id, glyph, pos) {
+    StaticObject(string id, string glyph, Position pos) : Object(id, glyph, pos) {
         cout << "StaticObject initialized" << endl;
     }
     ~StaticObject() {
@@ -124,7 +128,7 @@ public:
 //Κλάση για παρκαρισμένα αυτοκίνητα.
 class ParkedCar : public StaticObject {
     public:
-        ParkedCar(Position pos = {0,0}) : StaticObject("ParkedCar", 'P', pos) {
+        ParkedCar(string id="", string glyph = "", Position pos={0,0}) : StaticObject("ParkedCar", "P", {0,0}) {
             cout << "ParkedCar initialized" << endl;
         }
         ~ParkedCar() {
@@ -135,7 +139,7 @@ class ParkedCar : public StaticObject {
 //Κλάση για τα σήματα STOP.
 class StopSign : public StaticObject {
     public:
-        StopSign(Position pos = {0,0}) : StaticObject("StopSign", 'S', pos) {
+        StopSign() : StaticObject("StopSign", "S", {0,0}) {
             cout << "StopSign initialized" << endl;
         }
         ~StopSign() {
@@ -148,7 +152,7 @@ class TrafficLight : public StaticObject {
     private:
        string state;
     public:
-        TrafficLight(Position pos = {0,0}, string State="RED") : StaticObject("TrafficLight", 'T', pos), state(State) {
+        TrafficLight(Position pos = {0,0}, string State="RED") : StaticObject("TrafficLight", "T", pos), state(State) {
             cout << "TrafficLight initialized" << endl;
         }
         ~TrafficLight() {
@@ -162,7 +166,7 @@ class MovingObject : public Object {
         int speed;
         string direction;
     public:
-        MovingObject(string id="", string glyph = 0, Position pos={0,0}, int Speed = 0, string Direction = 0) 
+        MovingObject(string id, string glyph, Position pos, int Speed = 0, string Direction = "") 
         : Object(id, glyph, pos), speed(Speed), direction(Direction) {
             cout << "MovingObject initialized" << endl;
         }
@@ -179,7 +183,7 @@ class SelfDrivingCar : public MovingObject {
         RadarSensor radar;
     public:
         SelfDrivingCar(Position pos = {0,0}) 
-        : MovingObject("SelfDrivingCar", 'C', pos), camera(position.x, position.y), lidar(position.x, position.y), 
+        : MovingObject("SelfDrivingCar", "C", pos), camera(position.x, position.y), lidar(position.x, position.y), 
         radar(position.x, position.y) {
             cout << "Car initialized" << endl;
         }
@@ -197,7 +201,7 @@ class SelfDrivingCar : public MovingObject {
 //κλάση για τα ποδήλατα.
 class Bike : public MovingObject {
     public:
-        Bike(Position pos = {0,0} ) : MovingObject("Bike", 'B', pos) {
+        Bike(Position pos = {0,0} ) : MovingObject("Bike", "B", pos) {
             cout << "Bike initialized" << endl;
         }
         ~Bike() {
