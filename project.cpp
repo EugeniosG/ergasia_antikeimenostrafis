@@ -149,7 +149,7 @@ class LidarSensor : public Sensor{
             cout << "lidar sensor destroyed" << endl;
         }
 
-        vector<vector<string>> scaner(string world){  
+        vector<vector<string>> scaner(world){  
             vector<vector<string>> area(9, vector<string>(9,""))       
             for(int i = (x-4) ; i < x+4 ; i++){
                 for(int j = (y-4) ; j < y+4 ; j++){
