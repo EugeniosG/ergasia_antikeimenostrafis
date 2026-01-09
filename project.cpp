@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cstring>
 #include <tuple>
+#include <vector>
 using namespace std;
 
 //Struct για την θέση των αντικειμένων στον κόσμο.
 struct Position {
-    int x;
+    int x;                                  
     int y;
 };
 
@@ -16,11 +17,16 @@ class Object {
         string id;
         int glyph;
     public:
+
         Object(string id, int glyph, Position pos = {0,0}) : id(id), glyph(glyph), position(pos) {
             cout << "Object initialized" << endl;
         }
         ~Object() {
             cout << "Object destroyed" << endl;
+        }
+
+         int getPosition() { 
+            return position;
         }
 };
 
@@ -121,12 +127,11 @@ class Bike : public MovingObject {
 //Βασική κλάση για τους αισθητήρες.
 class Sensor{
     protected:
-        int posx;
-        int posy;
+        Position position;
         string type;
     public:
-        Sensor(string type, int posx, int posy)
-        :type(type), posx(posx), posy(posy){
+        Sensor(string type, int x, int y)
+        :type(type), x(x), y(y){
             cout << "constructoe called" << endl;
         }
         virtual ~Sensor() {
@@ -137,39 +142,40 @@ class Sensor{
 //Κλάση για τον αισθητήρα Lidar.
 class LidarSensor : public Sensor{
     public:
-        LidarSensor(int posx, int posy) : Sensor("lidar", posx, posy){
+        LidarSensor(int x, int y) : Sensor("lidar", x, y){
             cout << "lidar sensor created" << endl;
         }
         virtual ~LidarSensor() {
             cout << "lidar sensor destroyed" << endl;
         }
-        string scaner(string world){
-            string area[9][9];
-            
-            for(int i = (posx-4) ; i < posx+4 ; i++){
-                for(int j = (posy-4) ; j < posy+4 ; j++){
-                    area[i%(posx-4)][j%(posy-4)] = world[i][j];
+
+        vector<vector<string>> scaner(string world){  
+            vector<vector<string>> area(9, vector<string>(9,""))       
+            for(int i = (x-4) ; i < x+4 ; i++){
+                for(int j = (y-4) ; j < y+4 ; j++){
+                    if (i > 0 && i <= )
+                    area[i%(x-4)][j%(y-4)] = world[i][j];
                 }
             }
-            return area[9][9];
+            return area;
         }
 };
 
 //Κλάση για τον αισθητήρα Radar.
 class RadarSensor : public Sensor{
     public:
-        RadarSensor(int posx, int posy) : Sensor("radar", posx, posy){
+        RadarSensor(int x, int y) : Sensor("radar", x, y){
             cout << "radar sensor created" << endl;
         }
         virtual ~RadarSensor() {
             cout << "radar sensor destroyed" << endl;
         }
         string scaner(string world) {
-            string area[12];
-            for(int i = posx+1 ; i <= posx+12 ; i++){
-                area [i%(posx+1)] = world[i][posy];
+            vector<string> area(12);
+            for(int i = x+1 ; i <= x+12 ; i++){
+                area [i%(x+1)] = world[i][y];
             }
-            return area[12];
+            return area;
         }
 };
 
@@ -177,20 +183,20 @@ class RadarSensor : public Sensor{
 //Κλάση για την κάμερα.
 class CameraSensor : public Sensor{
     public:
-        CameraSensor(int posx, int posy) : Sensor("camera", posx, posy){
+        CameraSensor(int x, int y) : Sensor("camera", x, y){
             cout << "camera created" << endl;
         }
         virtual ~CameraSensor() {
             cout << "camera destroyed" << endl;
         }
         string scaner(string world) {
-            string area[7][7];
-            for(int i = posx+1 ; i <= posx+7 ; i++){
-                for(int j = posy-3 ; j <= posy+3 ; j++){
-                    area[i%(posx+1)][j%(posy-3)] = world[i][j];
+             vector<vector<string>> area(7, vector<string>(7,""))
+            for(int i = x+1 ; i <= x+7 ; i++){
+                for(int j = y-3 ; j <= y+3 ; j++){
+                    area[i%(x+1)][j%(y-3)] = world[i][j];
                 }
             }
-            return area[7][7];
+            return area;
         }
 };
 
@@ -303,8 +309,9 @@ int main(int argc, char* argv[]){
         cout << "Try Again !!!" <<endl;
         return 1;
     }
+    
     //διμηουργω ενα πινακα με strings για την προσομοιωση του "κοσμου"
-    string world[dimX][dimY];
+    vector<vector<string>> world(dimX, vector<string>(dimY, ""));
 
     return 0;
 }
