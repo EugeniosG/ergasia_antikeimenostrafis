@@ -10,6 +10,19 @@ struct Position {
     int y;
 };
 
+//Struct για την αποθήκευση των αναγνώσεων των αισθητήρων.
+struct SensorReading {
+    string objectType;     // "Car", "Bike", "StopSign", etc.
+    Position position;     // absolute position in the world
+    string objectId;       // e.g., "CAR:3"
+    double confidence;     // 0.0 to 1.0
+    int distance;          // Manhattan distance from car
+    int speed;             // if moving object, else 0
+    string direction;      // "N", "S", "E", "W" (moving objects)
+    string signText;       // if stop sign, yield, etc.
+    string trafficLight;   // RED, YELLOW, GREEN, else ""
+};
+
 //Βασική κλάση για τους αισθητήρες.
 class Sensor{
     protected:
@@ -41,7 +54,8 @@ class LidarSensor : public Sensor{
             cout << "lidar sensor destroyed" << endl;
         }
 
-        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y){  
+        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y){ 
+            vector<SensorReading> results; 
             vector<vector<string>> area(9, vector<string>(9,""));     
             for(int i = (x-4) ; i < x+4 ; i++) {
                 for(int j = (y-4) ; j < y+4 ; j++){
@@ -49,8 +63,27 @@ class LidarSensor : public Sensor{
                     area[i-(x-4)][j-(y-4)] = world[i][j];
                     } 
                 }
-            }   
-            return area;
+            }
+            for (int i = 0; i < 9; i++) {
+                for (int j = 0; j < 9; j++) {
+                    if (area[i][j] != ".") {
+                        
+                        SensorReading reading;
+                        reading.objectType = area[i][j];
+                        reading.position = {x + (i - 4), y + (j - 4)};
+                        reading.objectId = area[i][j] + ":1"; // Dummy ID
+                        reading.confidence = 1.0; // Dummy confidence
+                        reading.distance = abs(i - 4) + abs(j - 4);
+                        reading.speed = 0; // Static object
+                        reading.direction = "";
+                        reading.signText = "";
+                        reading.trafficLight = "";
+                        results.push_back(reading);
+                    }
+                }
+            }
+
+            return results;
         
         }
     };
@@ -65,14 +98,15 @@ class RadarSensor : public Sensor{
         virtual ~RadarSensor() {
             cout << "radar sensor destroyed" << endl;
         }
-        vector<string> scaner(vector<vector<string>> &world, int x, int y) {
+        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y) {
             vector<string> area(12);
+            vector<SensorReading> results; 
             for(int i = x+1 ; i <= x+12 ; i++){
                 if (i >= 0 && i < world.size()) {
                 area[i-(x+1)] = world[i][y];
                 }
             }
-             return area;
+             return results;
         }
 };
 
