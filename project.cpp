@@ -120,8 +120,9 @@ class CameraSensor : public Sensor{
         virtual ~CameraSensor() {
             cout << "camera destroyed" << endl;
         }
-        vector<vector<string>> scaner(vector<vector<string>> &world, int x, int y) {
+        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y) {
              vector<vector<string>> area(7, vector<string>(7,""));
+             vector<SensorReading> results;
             for(int i = x+1 ; i <= x+7 ; i++){
                 for(int j = y-3 ; j <= y+3 ; j++){
                     if (i >= 0 && i < world.size() && j >= 0 && j < world[0].size()) {
@@ -129,7 +130,7 @@ class CameraSensor : public Sensor{
                     }   
                 }
             }
-            return area;
+            return results;
         }
 };
 
