@@ -10,6 +10,14 @@ struct Position {
     int y;
 };
 
+struct ID{
+    string type;
+    int num;
+};
+
+class GridWorld;
+class Object;
+
 //Struct για την αποθήκευση των αναγνώσεων των αισθητήρων.
 struct SensorReading {
     string objectType;     // "Car", "Bike", "StopSign", etc.
@@ -22,6 +30,8 @@ struct SensorReading {
     string signText;       // if stop sign, yield, etc.
     string trafficLight;   // RED, YELLOW, GREEN, else ""
 };
+
+
 
 //Βασική κλάση για τους αισθητήρες.
 class Sensor{
@@ -44,111 +54,141 @@ class Sensor{
 
 };
 
-//Κλάση για τον αισθητήρα Lidar.
-class LidarSensor : public Sensor{
-    public:
-        LidarSensor(int x, int y) : Sensor("lidar", x, y){
-            cout << "lidar sensor created" << endl;
-        }
-        virtual ~LidarSensor() {
-            cout << "lidar sensor destroyed" << endl;
-        }
+// LIDAR SENSOR
+class LidarSensor : public Sensor {
+public:
+    LidarSensor(int x, int y) : Sensor("lidar", x, y) {
+        cout << "lidar sensor created" << endl;
+    }
+    virtual ~LidarSensor() { cout << "lidar sensor destroyed" << endl; }
 
-        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y){ 
-            vector<SensorReading> results; 
-            vector<vector<string>> area(9, vector<string>(9,""));     
-            for(int i = (x-4) ; i < x+4 ; i++) {
-                for(int j = (y-4) ; j < y+4 ; j++){
-                    if (i >= 0 && i < world.size() && j >= 0 && j < world[0].size()) {
-                    area[i-(x-4)][j-(y-4)] = world[i][j];
-                    } 
-                }
+    vector<SensorReading> scan(const GridWorld& world, int carX, int carY) {
+        vector<SensorReading> results;
+        int range = 4; // 9x9 γύρω από το αυτοκίνητο
+
+        for (auto obj : world.getObjects()) {
+            Position pos = obj->getPosition();
+            int dx = pos.x - carX;
+            int dy = pos.y - carY;
+
+            if (abs(dx) <= range && abs(dy) <= range) {
+                SensorReading reading;
+                reading.objectType = obj->getType();
+                reading.objectId = obj->getID();
+                reading.position = pos;
+                reading.distance = abs(dx) + abs(dy); // Manhattan distance
+                reading.confidence = 0.99; // εξαιρετική ακρίβεια για απόσταση
+                reading.speed = 0; // static by default
+                reading.direction = "";
+                reading.signText = "";
+                reading.trafficLight = "";
+                results.push_back(reading);
             }
-            for (int i = 0; i < 9; i++) {
-                for (int j = 0; j < 9; j++) {
-                    if (area[i][j] != ".") {
-                        
-                        SensorReading reading;
-                        reading.objectType = area[i][j];
-                        reading.position = {x + (i - 4), y + (j - 4)};
-                        reading.objectId = area[i][j] + ":1"; // Dummy ID
-                        reading.confidence = 1.0; // Dummy confidence
-                        reading.distance = abs(i - 4) + abs(j - 4);
-                        reading.speed = 0; // Static object
-                        reading.direction = "";
-                        reading.signText = "";
-                        reading.trafficLight = "";
-                        results.push_back(reading);
-                    }
-                }
+        }
+
+        return results;
+    }
+};
+
+// RADAR SENSOR
+class RadarSensor : public Sensor {
+public:
+    RadarSensor(int x, int y) : Sensor("radar", x, y) {
+        cout << "radar sensor created" << endl;
+    }
+    virtual ~RadarSensor() { cout << "radar sensor destroyed" << endl; }
+
+    vector<SensorReading> scan(const GridWorld& world, int carX, int carY) {
+        vector<SensorReading> results;
+        int range = 12; // 12 θέσεις μπροστά
+
+        for (auto obj : world.getObjects()) {
+            Position pos = obj->getPosition();
+            int dx = pos.x - carX;
+            int dy = pos.y - carY;
+
+            // radar βλέπει μόνο μπροστά (ας υποθέσουμε προς +X)
+            if (dx > 0 && dx <= range && abs(dy) <= 0) { 
+                SensorReading reading;
+                reading.objectType = obj->getType();
+                reading.objectId = obj->getID();
+                reading.position = pos;
+                reading.distance = dx; 
+                reading.confidence = 0.95; // υψηλή ακρίβεια
+                reading.speed = 1; // αν είναι κινούμενο, αλλιώς 0
+                reading.direction = "E";  // προς τα δεξιά για παράδειγμα
+                reading.signText = "";
+                reading.trafficLight = "";
+                results.push_back(reading);
             }
-
-            return results;
-        
         }
-    };
 
+        return results;
+    }
+};
 
-//Κλάση για τον αισθητήρα Radar.
-class RadarSensor : public Sensor{
-    public:
-        RadarSensor(int x, int y) : Sensor("radar", x, y){
-            cout << "radar sensor created" << endl;
-        }
-        virtual ~RadarSensor() {
-            cout << "radar sensor destroyed" << endl;
-        }
-        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y) {
-            vector<string> area(12);
-            vector<SensorReading> results; 
-            for(int i = x+1 ; i <= x+12 ; i++){
-                if (i >= 0 && i < world.size()) {
-                area[i-(x+1)] = world[i][y];
-                }
+// CAMERA SENSOR
+class CameraSensor : public Sensor {
+public:
+    CameraSensor(int x, int y) : Sensor("camera", x, y) {
+        cout << "camera created" << endl;
+    }
+    virtual ~CameraSensor() { cout << "camera destroyed" << endl; }
+
+    vector<SensorReading> scan(const GridWorld& world, int carX, int carY) {
+        vector<SensorReading> results;
+        int range = 3; // 7x7 μπροστά από το αυτοκίνητο
+
+        for (auto obj : world.getObjects()) {
+            Position pos = obj->getPosition();
+            int dx = pos.x - carX;
+            int dy = pos.y - carY;
+
+            // camera βλέπει μπροστά (ας υποθέσουμε +X)
+            if (dx > 0 && dx <= range && abs(dy) <= range / 2) {
+                SensorReading reading;
+                reading.objectType = obj->getType();
+                reading.objectId = obj->getID();
+                reading.position = pos;
+                reading.distance = abs(dx) + abs(dy);
+                reading.confidence = 0.87; // μέτρια ακρίβεια
+                reading.speed = 0; // static by default
+                reading.direction = "";
+                
+                // Αν είναι σήμα ή φανάρι, καταγράφει info
+                if (obj->getType() == "StopSign") reading.signText = "STOP";
+                if (obj->getType() == "TrafficLight") reading.trafficLight = "RED"; // παράδειγμα
+                
+                results.push_back(reading);
             }
-             return results;
         }
+
+        return results;
+    }
 };
 
 
-//Κλάση για την κάμερα.
-class CameraSensor : public Sensor{
-    public:
-        CameraSensor(int x, int y) : Sensor("camera", x, y){
-            cout << "camera created" << endl;
-        }
-        virtual ~CameraSensor() {
-            cout << "camera destroyed" << endl;
-        }
-        vector<SensorReading> scaner(vector<vector<string>> &world, int x, int y) {
-             vector<vector<string>> area(7, vector<string>(7,""));
-             vector<SensorReading> results;
-            for(int i = x+1 ; i <= x+7 ; i++){
-                for(int j = y-3 ; j <= y+3 ; j++){
-                    if (i >= 0 && i < world.size() && j >= 0 && j < world[0].size()) {
-                    area[i-(x+1)][j-(y-3)] = world[i][j];
-                    }   
-                }
-            }
-            return results;
-        }
+//Κλάση για συγχώνευση
+class FuseSensorEngine {
+    protected:
+        
 };
 
 //Βασική κλάση για όλα τα αντικείμενα στον κόσμο.
 class Object {
     protected:
         Position position;
-        string id;
+        ID id;
         string glyph;
     public:
 
-        Object() : id(""), glyph(""), position{0,0} {
+        Object() : id({"", 0}), glyph(""), position{0,0} {
             cout << "Object initialized" << endl;
         }
-        Object(string id, string glyph, Position pos ) : id(id), glyph(glyph), position(pos) {
+        Object(ID id, string glyph, Position pos ) : id(id), glyph(glyph), position(pos) {
             cout << "Object initialized" << endl;
         }
-        ~Object() {
+        virtual ~Object() {
             cout << "Object destroyed" << endl;
         }
 
@@ -160,12 +200,15 @@ class Object {
          Position getPosition() { 
             return position;
         }   
+         virtual string getType() const = 0;  // pure virtual
+        virtual string getID() const = 0;
+        virtual Position getPosition() const;
 };
 
 //Κλάση για στατικά αντικείμενα.
 class StaticObject : public Object {
 public:
-    StaticObject(string id, string glyph, Position pos) : Object(id, glyph, pos) {
+    StaticObject(ID id, string glyph, Position pos) : Object(id, glyph, pos) {
         cout << "StaticObject initialized" << endl;
     }
     ~StaticObject() {
@@ -176,7 +219,7 @@ public:
 //Κλάση για παρκαρισμένα αυτοκίνητα.
 class ParkedCar : public StaticObject {
     public:
-        ParkedCar(string id="", string glyph = "", Position pos={0,0}) : StaticObject("ParkedCar", "P", {0,0}) {
+        ParkedCar(ID id={"", 0}, string glyph = "", Position pos={0,0}) : StaticObject("ParkedCar", "P", {0,0}) {
             cout << "ParkedCar initialized" << endl;
         }
         ~ParkedCar() {
@@ -214,7 +257,7 @@ class MovingObject : public Object {
         int speed;
         string direction;
     public:
-        MovingObject(string id, string glyph, Position pos, int Speed = 0, string Direction = "") 
+        MovingObject(ID id, string glyph, Position pos, int Speed = 0, string Direction = "") 
         : Object(id, glyph, pos), speed(Speed), direction(Direction) {
             cout << "MovingObject initialized" << endl;
         }
@@ -278,6 +321,29 @@ class Bike : public MovingObject {
             cout << "Bike destroyed" << endl;
         }
 };
+
+//κλασση που αντιπροσοπευει τον κοσμο της προσομοιωσης 
+class GridWorld {
+private:
+    int dimX, dimY;
+    vector<Object*> objects;
+
+public:
+    GridWorld(int x, int y) : dimX(x), dimY(y) {}
+
+    void addObject(Object* obj) {
+        objects.push_back(obj);
+    }
+
+    vector<Object*> getObjects() const {
+        return objects;
+    }
+
+    bool inBounds(int x, int y) const {
+        return x >= 0 && x < dimX && y >= 0 && y < dimY;
+    }
+};
+
 
 
 
