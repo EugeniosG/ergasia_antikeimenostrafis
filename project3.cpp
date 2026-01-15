@@ -605,56 +605,59 @@ public:
         
         Position target = getCurrentTarget();
         
-        // Check if reached current target
+        // ελεγχω αν εχουμε ηδη φτασει στον στοχο μας
         if (hasReachedTarget(carPos)) {
             return "NEXT_TARGET";
         }
         
-        // Check for obstacles and hazards
         for (const auto& reading : fusedReadings) {
             if (reading.distance <= 2 && reading.speed > 0) {
-                // Moving object very close
+                //κινουμενο αντικειμενο κοντα μας
                 return "DECELERATE";
             }
             
             if (reading.distance <= 3 && 
                 (reading.trafficLight == "RED" || reading.trafficLight == "YELLOW")) {
-                // Red or yellow light
+                // κοκκινο ή κιτρινο φαναρι
                 return "DECELERATE";
             }
             
             if (reading.distance <= 5 && reading.objectType == "StopSign") {
-                // Stop sign ahead
+                // STOP
                 return "DECELERATE";
             }
         }
         
-        // Check distance to target
+        // ελεγχω την απποσταση απο τον στοχο μηπως χρειαζεται να αλλαξω ταχυτητα
         int distanceToTarget = carPos.distanceTo(target);
-        if (distanceToTarget <= 5) {
+        if (distanceToTarget <= 5 && carSpeed == 2) {
             return "DECELERATE";
         }
+        else if (distanceToTarget <= 2 && carSpeed == 1){
+            return "DECELERATE";
+        }
+
         
-        // Determine direction to target
+        // καθοριζω την αποσταση οριζοντια και καθετα απο το αυτονομο οχημα μεχρι τον στοχο 
         int dx = target.x - carPos.x;
         int dy = target.y - carPos.y;
         
-        // Choose movement direction
+        // ελεγχω για αλλαγη κατευθηνσης 
         if (abs(dx) > abs(dy)) {
-            // Prioritize horizontal
+            // αναλογα με το προσημο της αποστασης αλαξω κατευθηνση προς τα δεξια(EAST) ή προς τα αριστερα(WEST)  
             if (dx > 0 && carDir != "E") return "TURN_E";
             if (dx < 0 && carDir != "W") return "TURN_W";
         } else {
-            // Prioritize vertical
+            // αναλογα με το προσημο της αποστασης αλαξω κατευθηνση προς τα πανω(NORTH) ή προς τα κατω(SOUTH)  
             if (dy > 0 && carDir != "N") return "TURN_N";
             if (dy < 0 && carDir != "S") return "TURN_S";
         }
         
-        // If facing correct direction, accelerate if not at full speed
+        // αν ειμαστε στην σωστη κατευθηνση για τον στοχο μας τοτε κανουμε accelerate
         if (carSpeed < 2) {
             return "ACCELERATE";
         }
-        
+        // αν δεν εγινε καμια αλλαγη στα παραπανω απλα συνεχιζουμε
         return "CONTINUE";
     }
     
@@ -702,15 +705,13 @@ public:
     NavigationSystem& get_navigation() { return navigation; }
 
     void accelerate() {
-        if (speed == 0) speed = 1; // HALF_SPEED
-        else if (speed == 1) speed = 2; // FULL_SPEED
-        cout << "  Accelerating to speed " << speed << endl;
+        if (speed < 2)
+        speed ++;
     }
     
     void decelerate() {
         if (speed > 0) {
             speed--;
-            cout << "  Decelerating to speed " << speed << endl;
         }
     }
     
@@ -737,6 +738,7 @@ public:
         fusedReadings = navigation.processSensorData(lastReadings);
     }
     
+    // σηναρτηση για την εκτελεση των αποφασεων 
     bool executeMovement(GridWorld& world) {
         string decision = navigation.makeDecision(position, direction, fusedReadings, speed);
         
@@ -785,6 +787,7 @@ public:
     string getType() const override { return "SelfDrivingCar"; }
 };
 
+//συναρτηση για την εκτηποση του κοσμου
 void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
     int dimX = world.getDimX();
     int dimY = world.getDimY();
@@ -800,6 +803,7 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
             Position pos(x, y);
             Position carPos = car.getPosition();
             
+            //στην θεση του αυτονομου αυτοκινητου βαζω το συμβολο @ συμφωνα με την εκφωνηση
             if (pos.x == carPos.x && pos.y == carPos.y) {
                 cout << "@";
                 continue;
@@ -821,6 +825,7 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
     cout << "X" << endl;
 }
 
+// υλοποιω μια συναρτηση για την μερικη οπτικοποιηση  και γινεται σε καθε κυκλο (tick)
 void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int radius = 5) {
     Position carPos = car.getPosition();
     
@@ -850,7 +855,7 @@ void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int ra
 }
 
 
-
+//βοηθητικη συναρτηση για διευκοληνση του χρηστη να καλεσει σωστα το προγραμμα
 void print_help() {
     cout << "--seed <n>                     Random seed (default current time)" << endl;
     cout << "--dimX <n>                     World width (default 40)" << endl;
@@ -866,11 +871,10 @@ void print_help() {
     cout << "--help                         Showing this message" << endl;
     cout << "\nUsage:" << endl;
     cout << "./project --seed 12 --dimX 40 --dimY 40 --gps 10 20 30 15" << endl;
-    cout << "==========================================" << endl;
 }
 
 int main(int argc, char* argv[]) {
-    // Default values
+    // αρχικοποιω της τιμες συμφωνα με την εκφωνηση 
     int dimX = 40;
     int dimY = 40;
     int MovingCars = 3;
@@ -879,7 +883,7 @@ int main(int argc, char* argv[]) {
     int STOP = 1;
     int TrafficLights = 2;
     int ticks = 100;
-    int seed = time(NULL);
+    int seed ;
     double minConfidenceThreshold = 0.4;
 
     if (argc > 1 && strcmp(argv[1], "--help") == 0) {
@@ -890,10 +894,11 @@ int main(int argc, char* argv[]) {
     int i = 1; 
     vector<Position> destinations;
     bool gpsProvided = false;
-    
+    bool seedProvided = false;
     while(i < argc) {
         if (strcmp(argv[i], "--seed") == 0 && i+1 < argc) {
             seed = stoi(argv[i+1]);
+            seedProvided = true;
             i++;
         }
         else if (strcmp(argv[i], "--dimX") == 0 && i+1 < argc) {
@@ -933,7 +938,8 @@ int main(int argc, char* argv[]) {
             i++;
         }
         else if (strcmp(argv[i], "--gps") == 0 && i+1 < argc) {
-            // Parse GPS coordinates
+            // περνω τις συντεταγμενες gps που μου δινει ο χρηστης κατα την κληση του προγραμματος
+            //για την θεση του αυτοκινουμενου οχηματος αλλα και για τον(-ους) στοχο(-ους)
             for (int j = i + 1; j + 1 < argc; j += 2) {
                 try {
                     int x = stoi(argv[j]);
@@ -961,23 +967,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Set random seed
-    srand(seed);
-    
-    // Create world
+    // ελεγχω ασν εχει δωθει απο τον χρηστη τιμη seed αν δεν εχει με την βοηθεια της srand περναω μια τυχαια τιμη στην μεταβλητη seed 
+    if(seedProvided){
+        srand(seed); 
+    }
+
+    // δημιουργω τον κοσμο 
     GridWorld world(dimX, dimY);
     
-    // Create self-driving car at first GPS position
+    // δημιουργω το αυτοκινουμενο οχημα με της συντεταγμενες που εδωσε ο χρηστης
     SelfDrivingCar car;
     car.setPosition(destinations[0].x, destinations[0].y);
     
-    // Set remaining GPS targets
+    // αν υπαρχουν παραπανω απο ενας στοχος τους περναω σε vector
     if (destinations.size() > 1) {
         vector<Position> remainingTargets(destinations.begin() + 1, destinations.end());
         car.setNavigationTargets(remainingTargets);
-    } else {
-        // If only one target, car is already there
-        cout << "Car already at destination!" << endl;
+    } 
+    else {
+        //αλλιως εχω ηδη φτασει στοιν τελικο προορισμο και τερματιζω το προγραμμα αφου κανω εκτυπωση της τελικης καταστασης
         visualization_full(world, car);
         return 0;
     }
@@ -1074,12 +1082,11 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        // Self-driving car operations
+        // εδω το αμαξι εκτελει τις βασικες του λειτουργιες(συλεγει πληροφοριες απο τους αισθητηρες και ενεργοποιει το σθστημα πλοηγησης)
         car.collectSensorData(world);
         car.syncNavigationSystem();
         
-        // Display sensor readings
-        cout << "\nRaw Sensor Readings:" << endl;
+        //εμφανιζω τα στοιχεια των αιθητηρων
         const vector<SensorReading>& readings = car.getLastReadings();
         if (readings.empty()) {
             cout << "  No objects detected" << endl;
@@ -1099,7 +1106,7 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        //
+        //το αμαξι εδω εκτελει τις κινησεις για να κατευθηνθει προς τον στοχο
         carRunning = car.executeMovement(world);
         
         // ελεγχω αν το αμαξι ειναι εκτος οριων 
@@ -1109,14 +1116,13 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-        // Periodic visualization
+        // εμφανιζω το κομματι του κοσμου που ειναι γυρο απο το οχημα
         if (tick % 10 == 0 || tick == ticks - 1) {
             visualization_pov(world, car, 5);
         }
     }
     
-    // Final visualization
-    cout << "\n=== SIMULATION COMPLETE ===" << endl;
+    // εκτυπωνων προς τον χρηστη την τελικη θεση του αυτονομου αυτοκινητου στον κοσμο
     cout << "Final Position: (" << car.getPosition().x << "," << car.getPosition().y << ")" << endl;
     
     if (car.get_navigation().hasMoreTargets()) {
