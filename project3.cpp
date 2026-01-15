@@ -2,18 +2,18 @@
 #include <cstring>
 #include <tuple>
 #include <vector>
-#include <cstdlib>  // για rand()
-#include <ctime>    // για time()
-#include <cmath>    // για abs()
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
 #include <algorithm>
 #include <map>
+#include <unistd.h> // for usleep
 using namespace std;
 
 // Forward declarations
 class GridWorld;
 class Object;
 
-//Struct για την θέση των αντικειμένων στον κόσμο.
 struct Position {
     int x;                                  
     int y;
@@ -27,6 +27,10 @@ struct Position {
     bool operator!=(const Position& other) const {
         return !(*this == other);
     }
+    
+    int distanceTo(const Position& other) const {
+        return abs(x - other.x) + abs(y - other.y);
+    }
 };
 
 struct ID {
@@ -38,17 +42,16 @@ struct ID {
     }
 };
 
-//Struct για την αποθήκευση των αναγνώσεων των αισθητήρων.
 struct SensorReading {
-    string objectType;     // "Car", "Bike", "StopSign", etc.
-    Position position;     // absolute position in the world
-    string objectId;       // e.g., "CAR:3"
-    double confidence;     // 0.0 to 1.0
-    int distance;          // Manhattan distance from car
-    int speed;             // if moving object, else 0
-    string direction;      // "N", "S", "E", "W" (moving objects)
-    string signText;       // if stop sign, yield, etc.
-    string trafficLight;   // RED, YELLOW, GREEN, else ""
+    string objectType;
+    Position position;
+    string objectId;
+    double confidence;
+    int distance;
+    int speed;
+    string direction;
+    string signText;
+    string trafficLight;
     
     SensorReading() : confidence(0.0), distance(0), speed(0) {}
     
@@ -56,22 +59,23 @@ struct SensorReading {
         cout << "  Object: " << objectId << " at (" << position.x << "," << position.y 
              << "), type: " << objectType << ", distance: " << distance 
              << ", confidence: " << confidence;
-        if (!trafficLight.empty()) cout << ", light: " << trafficLight;
+        if (!trafficLight.empty() && trafficLight != "N/A") cout << ", light: " << trafficLight;
         if (!signText.empty()) cout << ", sign: " << signText;
-        if (speed > 0) cout << ", speed: " << speed;
+        if (speed > 0) cout << ", speed: " << speed << ", dir: " << direction;
         cout << endl;
     }
 };
 
-//Βασική κλάση για τους αισθητήρες.
 class Sensor {
 protected:
     Position position;
     string type;
     string sensorId;
+    static int sensorCounter;
 public:
-    Sensor(string t, int x, int y, string id = "")
-        : type(t), position(x, y), sensorId(id) {
+    Sensor(string t, int x, int y) : type(t), position(x, y) {
+        sensorCounter++;
+        sensorId = t + ":" + to_string(sensorCounter);
     }
     
     virtual ~Sensor() {}
@@ -87,12 +91,14 @@ public:
     string getId() const { return sensorId; }
 };
 
-//Βασική κλάση για όλα τα αντικείμενα στον κόσμο.
+int Sensor::sensorCounter = 0;
+
 class Object {
 protected:
     Position position;
     ID id;
     string glyph;
+    static map<string, int> objectCounters;
 public:
     Object() : id{"", 0}, glyph(""), position(0, 0) {}
     
@@ -100,9 +106,8 @@ public:
         : id{type, num}, glyph(g), position(pos) {
     }
     
-    virtual ~Object() {
-    }
-
+    virtual ~Object() {}
+    
     void setPosition(int x, int y) {
         position.x = x;
         position.y = y;
@@ -121,21 +126,29 @@ public:
     virtual string getTrafficLight() const { return ""; }
     
     virtual void update(int tick) {}
+    
+    static int getNextId(string type) {
+        return ++objectCounters[type];
+    }
 };
 
-//κλασση που αντιπροσοπευει τον κοσμο της προσομοιωσης 
+map<string, int> Object::objectCounters;
+
 class GridWorld {
 private:
     int dimX, dimY;
     vector<Object*> objects;
 
 public:
-    GridWorld(int x, int y) : dimX(x), dimY(y) {}
+    GridWorld(int x, int y) : dimX(x), dimY(y) {
+        cout << "[+WORLD: GRID] Reticulating splines – Hello, world!" << endl;
+    }
 
     ~GridWorld() {
         for (auto obj : objects) {
             delete obj;
         }
+        cout << "[-WORLD: GRID] Goodbye, cruel world!" << endl;
     }
 
     void addObject(Object* obj) {
@@ -178,10 +191,9 @@ public:
     }
 };
 
-// LIDAR SENSOR
 class LidarSensor : public Sensor {
 public:
-    LidarSensor(int x, int y) : Sensor("lidar", x, y, "LIDAR:0") {
+    LidarSensor(int x, int y) : Sensor("LIDAR", x, y) {
         cout << "[+LIDAR: " << sensorId << "] Lidar sensor ready – Sensing with pew pews!" << endl;
     }
     
@@ -191,32 +203,31 @@ public:
 
     vector<SensorReading> scan(const GridWorld& world, int carX, int carY, string carDir) override {
         vector<SensorReading> results;
-        int range = 4; // 9x9 γύρω από το αυτοκίνητο
+        int range = 4; // 9x9 area
 
         for (auto obj : world.getObjects()) {
             Position pos = obj->getPosition();
-            int dx = abs(pos.x - carX);
-            int dy = abs(pos.y - carY);
+            int dx = pos.x - carX;
+            int dy = pos.y - carY;
 
-            if (dx <= range && dy <= range) {
+            if (abs(dx) <= range && abs(dy) <= range) {
                 SensorReading reading;
                 reading.objectType = obj->getType();
                 reading.objectId = obj->getID();
                 reading.position = pos;
-                reading.distance = dx + dy; // Manhattan distance
+                reading.distance = abs(dx) + abs(dy);
                 
-                // Βασική βεβαιότητα με θόρυβο ±0.05
+                // Base confidence with noise
                 double baseConfidence = 0.99;
                 double distanceFactor = 1.0 - (reading.distance / (double)(range * 2));
                 reading.confidence = baseConfidence * distanceFactor;
-                reading.confidence += ((rand() % 11) - 5) * 0.01; // ±0.05 θόρυβο
-                if (reading.confidence > 1.0) reading.confidence = 1.0;
-                if (reading.confidence < 0.0) reading.confidence = 0.0;
+                reading.confidence += ((rand() % 11) - 5) * 0.01;
+                reading.confidence = max(0.0, min(1.0, reading.confidence));
                 
                 reading.speed = obj->getSpeed();
                 reading.direction = obj->getDirection();
-                // Lidar doesn't read sign text or traffic lights well
-                if (obj->getType() == "StopSign") reading.signText = obj->getSignText();
+                reading.signText = obj->getSignText();
+                reading.trafficLight = obj->getTrafficLight();
                 results.push_back(reading);
             }
         }
@@ -225,10 +236,9 @@ public:
     }
 };
 
-// RADAR SENSOR
 class RadarSensor : public Sensor {
 public:
-    RadarSensor(int x, int y) : Sensor("radar", x, y, "RADAR:0") {
+    RadarSensor(int x, int y) : Sensor("RADAR", x, y) {
         cout << "[+RADAR: " << sensorId << "] Radar sensor ready – I'm a Radio star!" << endl;
     }
     
@@ -238,34 +248,43 @@ public:
 
     vector<SensorReading> scan(const GridWorld& world, int carX, int carY, string carDir) override {
         vector<SensorReading> results;
-        int range = 12; // 12 θέσεις μπροστά
+        int range = 12;
 
         for (auto obj : world.getObjects()) {
             Position pos = obj->getPosition();
             int dx = pos.x - carX;
             int dy = pos.y - carY;
 
-            // radar βλέπει μόνο μπροστά (βάσει κατεύθυνσης)
+            // Check if object is in front based on car direction
             bool inFront = false;
-            if (carDir == "E" && dx > 0 && dx <= range && abs(dy) <= 1) inFront = true;
-            else if (carDir == "W" && dx < 0 && abs(dx) <= range && abs(dy) <= 1) inFront = true;
-            else if (carDir == "N" && dy > 0 && dy <= range && abs(dx) <= 1) inFront = true;
-            else if (carDir == "S" && dy < 0 && abs(dy) <= range && abs(dx) <= 1) inFront = true;
+            int frontDistance = 0;
             
-            if (inFront && obj->getSpeed() > 0) { // Radar sees only moving objects
+            if (carDir == "E" && dx > 0 && abs(dy) <= 1) {
+                inFront = true;
+                frontDistance = dx;
+            } else if (carDir == "W" && dx < 0 && abs(dy) <= 1) {
+                inFront = true;
+                frontDistance = abs(dx);
+            } else if (carDir == "N" && dy > 0 && abs(dx) <= 1) {
+                inFront = true;
+                frontDistance = dy;
+            } else if (carDir == "S" && dy < 0 && abs(dx) <= 1) {
+                inFront = true;
+                frontDistance = abs(dy);
+            }
+            
+            if (inFront && frontDistance <= range && obj->getSpeed() > 0) {
                 SensorReading reading;
                 reading.objectType = obj->getType();
                 reading.objectId = obj->getID();
                 reading.position = pos;
-                reading.distance = abs(dx) + abs(dy);
+                reading.distance = frontDistance;
                 
-                // Βασική βεβαιότητα με θόρυβο
                 double baseConfidence = 0.95;
-                double distanceFactor = 1.0 - (reading.distance / (double)(range * 2));
+                double distanceFactor = 1.0 - (reading.distance / (double)range);
                 reading.confidence = baseConfidence * distanceFactor;
                 reading.confidence += ((rand() % 11) - 5) * 0.01;
-                if (reading.confidence > 1.0) reading.confidence = 1.0;
-                if (reading.confidence < 0.0) reading.confidence = 0.0;
+                reading.confidence = max(0.0, min(1.0, reading.confidence));
                 
                 reading.speed = obj->getSpeed();
                 reading.direction = obj->getDirection();
@@ -277,10 +296,9 @@ public:
     }
 };
 
-// CAMERA SENSOR
 class CameraSensor : public Sensor {
 public:
-    CameraSensor(int x, int y) : Sensor("camera", x, y, "CAMERA:0") {
+    CameraSensor(int x, int y) : Sensor("CAMERA", x, y) {
         cout << "[+CAMERA: " << sensorId << "] Camera sensor ready – Say cheese!" << endl;
     }
     
@@ -290,7 +308,7 @@ public:
 
     vector<SensorReading> scan(const GridWorld& world, int carX, int carY, string carDir) override {
         vector<SensorReading> results;
-        int range = 3; // 7x7 μπροστά από το αυτοκίνητο
+        int range = 3; // 7x7 area in front
 
         for (auto obj : world.getObjects()) {
             Position pos = obj->getPosition();
@@ -310,13 +328,11 @@ public:
                 reading.position = pos;
                 reading.distance = abs(dx) + abs(dy);
                 
-                // Βασική βεβαιότητα με θόρυβο
                 double baseConfidence = 0.87;
                 double distanceFactor = 1.0 - (reading.distance / (double)(range * 2));
                 reading.confidence = baseConfidence * distanceFactor;
                 reading.confidence += ((rand() % 11) - 5) * 0.01;
-                if (reading.confidence > 1.0) reading.confidence = 1.0;
-                if (reading.confidence < 0.0) reading.confidence = 0.0;
+                reading.confidence = max(0.0, min(1.0, reading.confidence));
                 
                 reading.speed = obj->getSpeed();
                 reading.direction = obj->getDirection();
@@ -330,22 +346,19 @@ public:
     }
 };
 
-//Κλάση για στατικά αντικείμενα.
 class StaticObject : public Object {
 public:
     StaticObject(string type, int num, string glyph, Position pos) 
         : Object(type, num, glyph, pos) {
     }
     
-    ~StaticObject() {
-    }
+    ~StaticObject() {}
 };
 
-//Κλάση για παρκαρισμένα αυτοκίνητα.
 class ParkedCar : public StaticObject {
 public:
-    ParkedCar(int num, Position pos) 
-        : StaticObject("ParkedCar", num, "P", pos) {
+    ParkedCar(Position pos) 
+        : StaticObject("ParkedCar", Object::getNextId("ParkedCar"), "P", pos) {
         cout << "[+PARKED: " << getID() << "] Parked at (" << pos.x << "," << pos.y << ")" << endl;
     }
     
@@ -356,28 +369,26 @@ public:
     string getType() const override { return "ParkedCar"; }
 };
 
-//Κλάση για τα σήματα STOP.
 class StopSign : public StaticObject {
 public:
-    StopSign(int num, Position pos) 
-        : StaticObject("StopSign", num, "S", pos) {
+    StopSign(Position pos) 
+        : StaticObject("StopSign", Object::getNextId("StopSign"), "S", pos) {
     }
     
-    ~StopSign() {
-    }
+    ~StopSign() {}
     
     string getType() const override { return "StopSign"; }
     string getSignText() const override { return "STOP"; }
 };
 
-//Κλάση για τα φανάρια.
 class TrafficLight : public StaticObject {
 private:
     string state;
     int tickCounter;
 public:
-    TrafficLight(int num, Position pos, string initialState = "RED") 
-        : StaticObject("TrafficLight", num, "T", pos), state(initialState), tickCounter(0) {
+    TrafficLight(Position pos) 
+        : StaticObject("TrafficLight", Object::getNextId("TrafficLight"), "R", pos), 
+          state("RED"), tickCounter(rand() % 14) { // Random starting point in cycle
         cout << "[+LIGHT: " << getID() << "] Initialized at (" << pos.x << "," << pos.y << ") to " << state << endl;
     }
     
@@ -391,7 +402,7 @@ public:
         if (state == "RED") return "R";
         if (state == "YELLOW") return "Y";
         if (state == "GREEN") return "G";
-        return "T";
+        return "?";
     }
     
     void update(int tick) override {
@@ -410,7 +421,6 @@ public:
     }
 };
 
-//Κλάση για κινητά αντικείμενα.
 class MovingObject : public Object { 
 protected:
     int speed;
@@ -421,8 +431,7 @@ public:
         : Object(type, num, glyph, pos), speed(Speed), direction(Direction) {
     }
     
-    ~MovingObject() {
-    }
+    ~MovingObject() {}
     
     int getSpeed() const override { return speed; }
     string getDirection() const override { return direction; }
@@ -430,7 +439,7 @@ public:
     void setSpeed(int s) { speed = s; }
     void setDirection(const string& dir) { direction = dir; }
     
-    virtual void move(GridWorld& world) {
+    virtual bool move(GridWorld& world) {
         int newX = position.x;
         int newY = position.y;
         
@@ -442,24 +451,24 @@ public:
         if (world.inBounds(newX, newY)) {
             position.x = newX;
             position.y = newY;
+            return true;
         } else {
-            // Remove from world if out of bounds
-            world.removeObject(this);
+            return false;
         }
     }
     
-    void update(int tick) override {
-        // Moving objects don't need tick-based updates
-    }
+    void update(int tick) override {}
 };
 
-// Κλάση για τα ποδήλατα.
 class Bike : public MovingObject {
 public:
-    Bike(int num, Position pos, string dir = "E", int spd = 1)
-        : MovingObject("Bike", num, "B", pos, spd, dir) {
+    Bike(Position pos) 
+        : MovingObject("Bike", Object::getNextId("Bike"), "B", pos, 1, "N") {
+        // Random direction
+        vector<string> dirs = {"N", "S", "E", "W"};
+        direction = dirs[rand() % 4];
         cout << "[+BIKE: " << getID() << "] Created at (" << pos.x << "," << pos.y 
-             << "), heading " << dir << " at " << spd << " units/tick" << endl;
+             << "), heading " << direction << " at " << speed << " units/tick" << endl;
     }
     
     ~Bike() {
@@ -467,19 +476,17 @@ public:
     }
     
     string getType() const override { return "Bike"; }
-    
-    void update(int tick) override {
-        // Bike movement will be handled in main loop
-    }
 };
 
-// Κλάση για άλλα αυτοκίνητα
 class OtherCar : public MovingObject {
 public:
-    OtherCar(int num, Position pos, string dir = "E", int spd = 1)
-        : MovingObject("Car", num, "C", pos, spd, dir) {
+    OtherCar(Position pos) 
+        : MovingObject("Car", Object::getNextId("Car"), "C", pos, 1, "N") {
+        // Random direction
+        vector<string> dirs = {"N", "S", "E", "W"};
+        direction = dirs[rand() % 4];
         cout << "[+CAR: " << getID() << "] Initialized at (" << pos.x << "," << pos.y 
-             << ") facing " << dir << " – No driver's license required!" << endl;
+             << ") facing " << direction << " – No driver's license required!" << endl;
     }
     
     ~OtherCar() {
@@ -487,13 +494,8 @@ public:
     }
     
     string getType() const override { return "Car"; }
-    
-    void update(int tick) override {
-        // Car movement will be handled in main loop
-    }
 };
 
-// Μηχανή συγχώνευσης αισθητήρων
 class SensorFusionEngine {
 private:
     double minConfidenceThreshold;
@@ -505,51 +507,41 @@ public:
         map<string, vector<SensorReading>> readingsByObject;
         vector<SensorReading> fusedResults;
         
-        // Ομαδοποίηση αναγνωρίσεων ανά ID αντικειμένου
         for (const auto& reading : allReadings) {
             readingsByObject[reading.objectId].push_back(reading);
         }
         
-        // Συγχώνευση για κάθε αντικείμενο
         for (const auto& pair : readingsByObject) {
             const vector<SensorReading>& readings = pair.second;
             
             if (readings.empty()) continue;
             
-            // Υπολογισμός σταθμισμένου μέσου όρου
-            SensorReading fused;
-            double totalWeight = 0.0;
+            SensorReading fused = readings[0];
+            double totalConfidence = 0.0;
+            int count = 0;
             
+            // Combine readings for same object
             for (const auto& r : readings) {
-                double weight = r.confidence;
-                totalWeight += weight;
+                totalConfidence += r.confidence;
+                count++;
                 
-                // Αρχικοποίηση με την πρώτη ανάγνωση
-                if (totalWeight == weight) {
-                    fused = r;
-                    fused.confidence = 0; // θα υπολογιστεί ξανά
-                }
-                
-                // Σταθμισμένος μέσος όρος για confidence
-                fused.confidence += r.confidence * weight;
-            }
-            
-            if (totalWeight > 0) {
-                fused.confidence /= totalWeight;
-                
-                // Ειδική περίπτωση για ποδήλατα - μην απορρίπτουμε ποτέ
-                bool isBike = false;
-                for (const auto& r : readings) {
-                    if (r.objectType == "Bike") {
-                        isBike = true;
-                        break;
+                // For special properties, take from highest confidence
+                if (r.confidence > fused.confidence) {
+                    if (!r.trafficLight.empty()) fused.trafficLight = r.trafficLight;
+                    if (!r.signText.empty()) fused.signText = r.signText;
+                    if (r.speed > 0) {
+                        fused.speed = r.speed;
+                        fused.direction = r.direction;
                     }
                 }
-                
-                // Αποδοχή ανάγνωσης αν ξεπερνά το κατώφλι ή είναι ποδήλατο
-                if (fused.confidence >= minConfidenceThreshold || isBike) {
-                    fusedResults.push_back(fused);
-                }
+            }
+            
+            fused.confidence = totalConfidence / count;
+            
+            // Apply threshold, but never reject bikes
+            bool isBike = readings[0].objectType == "Bike";
+            if (fused.confidence >= minConfidenceThreshold || isBike) {
+                fusedResults.push_back(fused);
             }
         }
         
@@ -557,7 +549,6 @@ public:
     }
 };
 
-// Σύστημα Πλοήγησης
 class NavigationSystem {
 private:
     vector<Position> gpsTargets;
@@ -577,18 +568,23 @@ public:
     void setGPSTargets(const vector<Position>& targets) {
         gpsTargets = targets;
         currentTargetIndex = 0;
+        cout << "Navigation set with " << targets.size() << " targets" << endl;
     }
     
     Position getCurrentTarget() const {
         if (currentTargetIndex < gpsTargets.size()) {
             return gpsTargets[currentTargetIndex];
         }
-        return Position(-1, -1); // No target
+        return Position(-1, -1);
     }
     
     void nextTarget() {
         if (currentTargetIndex < gpsTargets.size() - 1) {
             currentTargetIndex++;
+            cout << "Moving to next target: (" << getCurrentTarget().x 
+                 << "," << getCurrentTarget().y << ")" << endl;
+        } else {
+            cout << "Reached final destination!" << endl;
         }
     }
     
@@ -596,57 +592,70 @@ public:
         if (currentTargetIndex >= gpsTargets.size()) return true;
         
         Position target = gpsTargets[currentTargetIndex];
-        int distance = abs(carPos.x - target.x) + abs(carPos.y - target.y);
-        return distance <= 1; // Θεωρούμε ότι έφτασε όταν είναι σε διπλανό κελί
+        return carPos.distanceTo(target) == 0;
+    }
+    
+    bool hasMoreTargets() const {
+        return currentTargetIndex < gpsTargets.size();
     }
     
     string makeDecision(const Position& carPos, const string& carDir, 
-                       const vector<SensorReading>& fusedReadings) {
+                       const vector<SensorReading>& fusedReadings, int& carSpeed) {
+        if (!hasMoreTargets()) return "STOP";
+        
         Position target = getCurrentTarget();
         
-        if (target.x == -1) return "STOP"; // No more targets
+        // Check if reached current target
+        if (hasReachedTarget(carPos)) {
+            return "NEXT_TARGET";
+        }
         
-        // Έλεγχος για εμπόδια
+        // Check for obstacles and hazards
         for (const auto& reading : fusedReadings) {
             if (reading.distance <= 2 && reading.speed > 0) {
-                // Κινούμενο αντικείμενο πολύ κοντά
+                // Moving object very close
                 return "DECELERATE";
             }
             
             if (reading.distance <= 3 && 
                 (reading.trafficLight == "RED" || reading.trafficLight == "YELLOW")) {
-                // Κόκκινο ή κίτρινο φανάρι
+                // Red or yellow light
                 return "DECELERATE";
             }
             
             if (reading.distance <= 5 && reading.objectType == "StopSign") {
-                // Σήμα STOP
+                // Stop sign ahead
                 return "DECELERATE";
             }
         }
         
-        // Έλεγχος απόστασης από στόχο
-        int distanceToTarget = abs(carPos.x - target.x) + abs(carPos.y - target.y);
+        // Check distance to target
+        int distanceToTarget = carPos.distanceTo(target);
         if (distanceToTarget <= 5) {
             return "DECELERATE";
         }
         
-        // Απόφαση κατεύθυνσης
+        // Determine direction to target
         int dx = target.x - carPos.x;
         int dy = target.y - carPos.y;
         
+        // Choose movement direction
         if (abs(dx) > abs(dy)) {
-            // Προτεραιότητα στον οριζόντιο άξονα
+            // Prioritize horizontal
             if (dx > 0 && carDir != "E") return "TURN_E";
             if (dx < 0 && carDir != "W") return "TURN_W";
         } else {
-            // Προτεραιότητα στον κάθετο άξονα
+            // Prioritize vertical
             if (dy > 0 && carDir != "N") return "TURN_N";
             if (dy < 0 && carDir != "S") return "TURN_S";
         }
         
-        // Αν είμαστε στη σωστή κατεύθυνση, επιτάχυνση
-        return "ACCELERATE";
+        // If facing correct direction, accelerate if not at full speed
+        if (carSpeed < 2) {
+            return "ACCELERATE";
+        }
+        
+        return "CONTINUE";
     }
     
     vector<SensorReading> processSensorData(const vector<SensorReading>& allReadings) {
@@ -654,7 +663,6 @@ public:
     }
 };
 
-//Κλάση για αυτόνομο αυτοκίνητο.
 class SelfDrivingCar : public MovingObject {
 private:
     CameraSensor camera;
@@ -662,6 +670,7 @@ private:
     RadarSensor radar;
     NavigationSystem navigation;
     vector<SensorReading> lastReadings;
+    vector<SensorReading> fusedReadings;
     
 public:
     SelfDrivingCar(Position pos = Position(0, 0)) 
@@ -687,59 +696,52 @@ public:
         navigation.setGPSTargets(targets);
     }
 
-    CameraSensor& get_camera() {
-        return camera;
-    }
-
-    LidarSensor& get_lidar() {
-        return lidar;
-    }
-
-    RadarSensor& get_radar() {
-        return radar;
-    }
-    
-    NavigationSystem& get_navigation() {
-        return navigation;
-    }
+    CameraSensor& get_camera() { return camera; }
+    LidarSensor& get_lidar() { return lidar; }
+    RadarSensor& get_radar() { return radar; }
+    NavigationSystem& get_navigation() { return navigation; }
 
     void accelerate() {
         if (speed == 0) speed = 1; // HALF_SPEED
         else if (speed == 1) speed = 2; // FULL_SPEED
+        cout << "  Accelerating to speed " << speed << endl;
     }
     
     void decelerate() {
-        if (speed > 0) speed--;
+        if (speed > 0) {
+            speed--;
+            cout << "  Decelerating to speed " << speed << endl;
+        }
     }
     
     void turn(const string& newDir) {
-        direction = newDir;
+        if (direction != newDir) {
+            cout << "  Turning from " << direction << " to " << newDir << endl;
+            direction = newDir;
+        }
     }
     
     void collectSensorData(const GridWorld& world) {
         lastReadings.clear();
         
-        // Σάρωση από όλους τους αισθητήρες
         vector<SensorReading> cameraReadings = camera.scan(world, position.x, position.y, direction);
         vector<SensorReading> lidarReadings = lidar.scan(world, position.x, position.y, direction);
         vector<SensorReading> radarReadings = radar.scan(world, position.x, position.y, direction);
         
-        // Συνδυασμός όλων των αναγνώσεων
         lastReadings.insert(lastReadings.end(), cameraReadings.begin(), cameraReadings.end());
         lastReadings.insert(lastReadings.end(), lidarReadings.begin(), lidarReadings.end());
         lastReadings.insert(lastReadings.end(), radarReadings.begin(), radarReadings.end());
     }
     
     void syncNavigationSystem() {
-        // Δε χρειάζεται να κάνουμε τίποτα εδώ, τα δεδομένα είναι ήδη στις lastReadings
+        fusedReadings = navigation.processSensorData(lastReadings);
     }
     
-    void executeMovement(GridWorld& world) {
-        // Επεξεργασία δεδομένων και λήψη απόφασης
-        vector<SensorReading> fusedReadings = navigation.processSensorData(lastReadings);
-        string decision = navigation.makeDecision(position, direction, fusedReadings);
+    bool executeMovement(GridWorld& world) {
+        string decision = navigation.makeDecision(position, direction, fusedReadings, speed);
         
-        // Εκτέλεση απόφασης
+        cout << "  Decision: " << decision << endl;
+        
         if (decision == "ACCELERATE") {
             accelerate();
         } else if (decision == "DECELERATE") {
@@ -752,35 +754,47 @@ public:
             turn("N");
         } else if (decision == "TURN_S") {
             turn("S");
+        } else if (decision == "NEXT_TARGET") {
+            navigation.nextTarget();
+            return true;
         } else if (decision == "STOP") {
             speed = 0;
-            return;
+            cout << "  Final destination reached!" << endl;
+            return false;
         }
         
-        // Μετακίνηση
+        // Move the car
         if (speed > 0) {
-            move(world);
+            if (!move(world)) {
+                cout << "!!! CAR WENT OUT OF BOUNDS !!!" << endl;
+                return false;
+            }
         }
         
-        // Έλεγχος αν φτάσαμε στον στόχο
-        if (navigation.hasReachedTarget(position)) {
-            navigation.nextTarget();
-        }
+        return true;
     }
     
     const vector<SensorReading>& getLastReadings() const {
         return lastReadings;
     }
     
+    const vector<SensorReading>& getFusedReadings() const {
+        return fusedReadings;
+    }
+    
     string getType() const override { return "SelfDrivingCar"; }
 };
 
-// Συναρτήσεις οπτικοποίησης
 void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
     int dimX = world.getDimX();
     int dimY = world.getDimY();
     
     cout << "\n=== FULL WORLD VISUALIZATION ===" << endl;
+    
+    // Draw top border
+    cout << "+";
+    for (int x = 0; x < dimX; x++) cout << "-";
+    cout << "+" << endl;
     
     for (int y = dimY - 1; y >= 0; y--) {
         cout << "|";
@@ -788,13 +802,11 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
             Position pos(x, y);
             Position carPos = car.getPosition();
             
-            // Έλεγχος για το αυτόνομο όχημα
             if (pos.x == carPos.x && pos.y == carPos.y) {
                 cout << "@";
                 continue;
             }
             
-            // Έλεγχος για άλλα αντικείμενα
             Object* obj = world.getObjectAt(x, y);
             if (obj) {
                 cout << obj->getGlyph();
@@ -804,6 +816,11 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
         }
         cout << "|" << endl;
     }
+    
+    // Draw bottom border
+    cout << "+";
+    for (int x = 0; x < dimX; x++) cout << "-";
+    cout << "+" << endl;
     cout << "================================\n" << endl;
 }
 
@@ -811,29 +828,25 @@ void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int ra
     Position carPos = car.getPosition();
     
     cout << "\n=== CAR'S POINT OF VIEW (radius: " << radius << ") ===" << endl;
+    cout << "Car at (" << carPos.x << "," << carPos.y << ") facing " << car.getDirection() << endl;
     
     for (int y = carPos.y + radius; y >= carPos.y - radius; y--) {
         for (int x = carPos.x - radius; x <= carPos.x + radius; x++) {
-            // Έλεγχος όρια κόσμου
             if (!world.inBounds(x, y)) {
-                cout << "X";
+                cout << " ";
                 continue;
             }
             
-            // Έλεγχος για το αυτόνομο όχημα
             if (x == carPos.x && y == carPos.y) {
                 cout << "@";
-                continue;
-            }
-            
-            // Έλεγχος για άλλα αντικείμενα
-            Object* obj = world.getObjectAt(x, y);
-            if (obj) {
-                cout << obj->getGlyph();
             } else {
-                cout << ".";
+                Object* obj = world.getObjectAt(x, y);
+                if (obj) {
+                    cout << obj->getGlyph();
+                } else {
+                    cout << ".";
+                }
             }
-            cout << " ";
         }
         cout << endl;
     }
@@ -843,10 +856,10 @@ void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int ra
 void print_logo() {
     cout << "==========================================" << endl;
     cout << "   SELF-DRIVING CAR SIMULATION 2025" << endl;
+    cout << "   Object-Oriented Programming Project" << endl;
     cout << "==========================================" << endl;
 }
 
-//Η βοηθιτικη συναρτηση που μπορει ο χρηστης να καλεσει απο την γραμμη εντολων.
 void print_help() {
     cout << "==========================================" << endl;
     cout << "   SELF-DRIVING CAR SIMULATION - HELP" << endl;
@@ -865,13 +878,13 @@ void print_help() {
     cout << "--help                         Showing this message" << endl;
     cout << "\nUsage:" << endl;
     cout << "./project --seed 12 --dimX 40 --dimY 40 --gps 10 20 30 15" << endl;
+    cout << "==========================================" << endl;
 }
 
-//Αρχή της main
 int main(int argc, char* argv[]) {
     print_logo();
     
-    // Default τιμές
+    // Default values
     int dimX = 40;
     int dimY = 40;
     int MovingCars = 3;
@@ -883,17 +896,14 @@ int main(int argc, char* argv[]) {
     int seed = time(NULL);
     double minConfidenceThreshold = 0.4;
 
-    // εκτυπώνω το βοηθητικό προς τον χρήστη αν το ζητήσει.
     if (argc > 1 && strcmp(argv[1], "--help") == 0) {
         print_help();
         return 0;
     }
 
-    // παίρνω τις παραμέτρους από την γραμμή εντολών
     int i = 1; 
-    int x, y;
     vector<Position> destinations;
-    bool flag = false;
+    bool gpsProvided = false;
     
     while(i < argc) {
         if (strcmp(argv[i], "--seed") == 0 && i+1 < argc) {
@@ -936,119 +946,154 @@ int main(int argc, char* argv[]) {
             minConfidenceThreshold = stoi(argv[i+1]) / 100.0;
             i++;
         }
-        else if (strcmp(argv[i], "--gps") == 0 && i+2 < argc) {
-            // Ο πρώτος στόχος είναι η αρχική θέση
-            x = stoi(argv[i+1]);
-            y = stoi(argv[i+2]);
-            
-            // Άλλοι στόχοι (αν υπάρχουν)
-            for(int j = i+3; j+1 < argc; j += 2) {
-                destinations.push_back(Position(stoi(argv[j]), stoi(argv[j+1])));
+        else if (strcmp(argv[i], "--gps") == 0 && i+1 < argc) {
+            // Parse GPS coordinates
+            for (int j = i + 1; j + 1 < argc; j += 2) {
+                try {
+                    int x = stoi(argv[j]);
+                    int y = stoi(argv[j+1]);
+                    destinations.push_back(Position(x, y));
+                    gpsProvided = true;
+                } catch (...) {
+                    break;
+                }
             }
-            
-            // Προσθήκη του πρώτου στόχου στην αρχή της λίστας
-            destinations.insert(destinations.begin(), Position(x, y));
-            flag = true;
-            i += 2; // Προσπερνάμε τις συντεταγμένες
+            break;
         }
         i++;
     }
 
-    // Σε περίπτωση που δεν μου δώσει ο χρήστης συντεταγμένες
-    if (!flag) {
-        cout << "ERROR. GPS coordinates required" << endl;
-        cout << "Try --help for usage information!" << endl;
+    if (!gpsProvided) {
+        cout << "ERROR: GPS coordinates required!" << endl;
+        cout << "Use --gps <x1> <y1> [x2 y2 ...]" << endl;
+        cout << "Try --help for usage information" << endl;
         return 1;
     }
     
-    // Ρύθμιση seed
+    if (destinations.empty()) {
+        cout << "ERROR: At least one GPS coordinate required!" << endl;
+        return 1;
+    }
+    
+    // Set random seed
     srand(seed);
     
-    cout << "[+WORLD: GRID] Reticulating splines – Hello, world!" << endl;
-    
-    // Δημιουργία κόσμου
+    // Create world
     GridWorld world(dimX, dimY);
     
-    // Δημιουργία αυτόνομου οχήματος
+    // Create self-driving car at first GPS position
     SelfDrivingCar car;
     car.setPosition(destinations[0].x, destinations[0].y);
-    car.setNavigationTargets(destinations);
     
-    // Πληθυσμός κόσμου με αντικείμενα
+    // Set remaining GPS targets
+    if (destinations.size() > 1) {
+        vector<Position> remainingTargets(destinations.begin() + 1, destinations.end());
+        car.setNavigationTargets(remainingTargets);
+    } else {
+        // If only one target, car is already there
+        cout << "Car already at destination!" << endl;
+        visualization_full(world, car);
+        return 0;
+    }
+    
+    // Populate world with objects
     vector<string> directions = {"N", "S", "E", "W"};
     
-    // Προσθήκη ποδηλάτων
+    // Add bikes
     for (int i = 0; i < MovingBikes; i++) {
         Position pos(rand() % dimX, rand() % dimY);
-        string dir = directions[rand() % 4];
-        world.addObject(new Bike(i+1, pos, dir, 1));
+        // Ensure not on car position
+        while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
+            pos = Position(rand() % dimX, rand() % dimY);
+        }
+        world.addObject(new Bike(pos));
     }
     
-    // Προσθήκη άλλων αυτοκινήτων
+    // Add other cars
     for (int i = 0; i < MovingCars; i++) {
         Position pos(rand() % dimX, rand() % dimY);
-        string dir = directions[rand() % 4];
-        world.addObject(new OtherCar(i+1, pos, dir, 1));
+        while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
+            pos = Position(rand() % dimX, rand() % dimY);
+        }
+        world.addObject(new OtherCar(pos));
     }
     
-    // Προσθήκη παρκαρισμένων αυτοκινήτων
+    // Add parked cars
     for (int i = 0; i < ParkedCars; i++) {
         Position pos(rand() % dimX, rand() % dimY);
-        world.addObject(new ParkedCar(i+1, pos));
+        while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
+            pos = Position(rand() % dimX, rand() % dimY);
+        }
+        world.addObject(new ParkedCar(pos));
     }
     
-    // Προσθήκη STOP signs
+    // Add stop signs
     for (int i = 0; i < STOP; i++) {
         Position pos(rand() % dimX, rand() % dimY);
-        world.addObject(new StopSign(i+1, pos));
+        while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
+            pos = Position(rand() % dimX, rand() % dimY);
+        }
+        world.addObject(new StopSign(pos));
     }
     
-    // Προσθήκη φανάρια
+    // Add traffic lights
     for (int i = 0; i < TrafficLights; i++) {
         Position pos(rand() % dimX, rand() % dimY);
-        string initialState = directions[rand() % 3]; // RED, YELLOW, GREEN
-        world.addObject(new TrafficLight(i+1, pos, initialState));
+        while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
+            pos = Position(rand() % dimX, rand() % dimY);
+        }
+        world.addObject(new TrafficLight(pos));
     }
     
-    // Εκτέλεση προσομοίωσης
-    cout << "\n=== STARTING SIMULATION ===" << endl;
+    // Display simulation info
+    cout << "\n=== SIMULATION PARAMETERS ===" << endl;
     cout << "World Size: " << dimX << "x" << dimY << endl;
-    cout << "GPS Targets: " << destinations.size() << endl;
     cout << "Starting Position: (" << destinations[0].x << "," << destinations[0].y << ")" << endl;
+    cout << "GPS Targets: " << destinations.size() - 1 << endl;
+    for (size_t i = 1; i < destinations.size(); i++) {
+        cout << "  Target " << i << ": (" << destinations[i].x << "," << destinations[i].y << ")" << endl;
+    }
+    cout << "Moving Cars: " << MovingCars << endl;
+    cout << "Moving Bikes: " << MovingBikes << endl;
+    cout << "Parked Cars: " << ParkedCars << endl;
+    cout << "Stop Signs: " << STOP << endl;
+    cout << "Traffic Lights: " << TrafficLights << endl;
     cout << "Simulation Ticks: " << ticks << endl;
-    cout << "Min Confidence Threshold: " << (minConfidenceThreshold * 100) << "%" << endl;
+    cout << "Min Confidence: " << (minConfidenceThreshold * 100) << "%" << endl;
+    cout << "Random Seed: " << seed << endl;
     
-    // Αρχική οπτικοποίηση
+    // Initial visualization
     visualization_full(world, car);
     
     bool simulationRunning = true;
+    bool carRunning = true;
     
-    for (int tick = 0; tick < ticks && simulationRunning; tick++) {
+    for (int tick = 0; tick < ticks && simulationRunning && carRunning; tick++) {
         cout << "\n=== TICK " << tick << " ===" << endl;
-        cout << "Car at: (" << car.getPosition().x << "," << car.getPosition().y 
-             << ") facing " << car.getDirection() << " speed: " << car.getSpeed() << endl;
         
-        // Ενημέρωση όλων των αντικειμένων
+        // Update all world objects
         world.updateAll(tick);
         
-        // Μετακίνηση κινούμενων αντικειμένων
+        // Move other vehicles
         vector<Object*> objects = world.getObjects();
         for (auto obj : objects) {
             if (Bike* bike = dynamic_cast<Bike*>(obj)) {
-                bike->move(world);
+                if (!bike->move(world)) {
+                    world.removeObject(obj);
+                }
             } else if (OtherCar* otherCar = dynamic_cast<OtherCar*>(obj)) {
-                otherCar->move(world);
+                if (!otherCar->move(world)) {
+                    world.removeObject(obj);
+                }
             }
         }
         
-        // Αυτόνομο όχημα: συλλογή δεδομένων
+        // Self-driving car operations
         car.collectSensorData(world);
-        
-        // Αυτόνομο όχημα: συγχρονισμός με σύστημα πλοήγησης
         car.syncNavigationSystem();
         
-        // Εμφάνιση αναγνώσεων αισθητήρων
-        cout << "\nSensor Readings:" << endl;
+        // Display sensor readings
+        cout << "\nRaw Sensor Readings:" << endl;
         const vector<SensorReading>& readings = car.getLastReadings();
         if (readings.empty()) {
             cout << "  No objects detected" << endl;
@@ -1058,32 +1103,46 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        // Αυτόνομο όχημα: εκτέλεση κίνησης
-        car.executeMovement(world);
+        cout << "\nFused Sensor Readings:" << endl;
+        const vector<SensorReading>& fused = car.getFusedReadings();
+        if (fused.empty()) {
+            cout << "  No fused readings" << endl;
+        } else {
+            for (const auto& reading : fused) {
+                reading.print();
+            }
+        }
         
-        // Έλεγχος αν το αυτόνομο όχημα βγήκε εκτός ορίων
-        Position carPos = car.getPosition();
-        if (!world.inBounds(carPos.x, carPos.y)) {
+        // Execute movement
+        carRunning = car.executeMovement(world);
+        
+        // Check if car is out of bounds
+        if (!world.inBounds(car.getPosition().x, car.getPosition().y)) {
             cout << "\n!!! CAR WENT OUT OF BOUNDS !!!" << endl;
             simulationRunning = false;
             break;
         }
         
-        // Μερική οπτικοποίηση
+        // Periodic visualization
         if (tick % 10 == 0 || tick == ticks - 1) {
             visualization_pov(world, car, 5);
         }
         
-        // Μικρή καθυστέρηση για καλύτερη οπτικοποίηση
-        // usleep(100000); // 100ms
+        // Small delay for better visualization
+        usleep(100000); // 100ms
     }
     
-    // Τελική οπτικοποίηση
+    // Final visualization
     cout << "\n=== SIMULATION COMPLETE ===" << endl;
     cout << "Final Position: (" << car.getPosition().x << "," << car.getPosition().y << ")" << endl;
-    visualization_full(world, car);
     
-    cout << "[-WORLD: GRID] Goodbye, cruel world!" << endl;
+    if (car.get_navigation().hasMoreTargets()) {
+        cout << "Remaining targets: Yes" << endl;
+    } else {
+        cout << "All targets reached!" << endl;
+    }
+    
+    visualization_full(world, car);
     
     return 0;
 }
