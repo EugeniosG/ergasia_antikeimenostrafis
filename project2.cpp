@@ -519,7 +519,7 @@ int main(int argc, char* argv[]) {
         world.addObject(new ParkedCar(i+1, pos));
     }
     
-    // Προσθήκη STOP signs
+    // Προσθήκη STOP 
     for (int i = 0; i < STOP; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         world.addObject(new StopSign(i+1, pos));
@@ -530,10 +530,7 @@ int main(int argc, char* argv[]) {
         Position pos(rand() % dimX, rand() % dimY);
         world.addObject(new TrafficLight(i+1, pos));
     }
-    
-    // Προσθήκη του αυτόνομου οχήματος στον κόσμο
-    // world.addObject(&ferrari); // Αφήνω σχολιασμένο γιατί είναι στο stack
-    
+
     // Εκτέλεση προσομοίωσης
     cout << "\n=== Starting Simulation ===" << endl;
     cout << "World Size: " << dimX << "x" << dimY << endl;

@@ -789,15 +789,13 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
     int dimX = world.getDimX();
     int dimY = world.getDimY();
     
-    cout << "\n=== FULL WORLD VISUALIZATION ===" << endl;
-    
-    // Draw top border
-    cout << "+";
-    for (int x = 0; x < dimX; x++) cout << "-";
-    cout << "+" << endl;
+    //βαζω στα ορια τον χαρακτηρα "Χ" οπως λεει η εκγωνηση της εργασιας 
+    cout << "X";
+    for (int x = 0; x < dimX; x++) cout << "X";
+    cout << "X" << endl;
     
     for (int y = dimY - 1; y >= 0; y--) {
-        cout << "|";
+        cout << "X";
         for (int x = 0; x < dimX; x++) {
             Position pos(x, y);
             Position carPos = car.getPosition();
@@ -814,14 +812,13 @@ void visualization_full(const GridWorld& world, const SelfDrivingCar& car) {
                 cout << ".";
             }
         }
-        cout << "|" << endl;
+        cout << "X" << endl;
     }
     
-    // Draw bottom border
-    cout << "+";
-    for (int x = 0; x < dimX; x++) cout << "-";
-    cout << "+" << endl;
-    cout << "================================\n" << endl;
+
+    cout << "X";
+    for (int x = 0; x < dimX; x++) cout << "X";
+    cout << "X" << endl;
 }
 
 void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int radius = 5) {
@@ -850,20 +847,11 @@ void visualization_pov(const GridWorld& world, const SelfDrivingCar& car, int ra
         }
         cout << endl;
     }
-    cout << "==================================\n" << endl;
 }
 
-void print_logo() {
-    cout << "==========================================" << endl;
-    cout << "   SELF-DRIVING CAR SIMULATION 2025" << endl;
-    cout << "   Object-Oriented Programming Project" << endl;
-    cout << "==========================================" << endl;
-}
+
 
 void print_help() {
-    cout << "==========================================" << endl;
-    cout << "   SELF-DRIVING CAR SIMULATION - HELP" << endl;
-    cout << "==========================================" << endl;
     cout << "--seed <n>                     Random seed (default current time)" << endl;
     cout << "--dimX <n>                     World width (default 40)" << endl;
     cout << "--dimY <n>                     World height (default 40)" << endl;
@@ -882,8 +870,6 @@ void print_help() {
 }
 
 int main(int argc, char* argv[]) {
-    print_logo();
-    
     // Default values
     int dimX = 40;
     int dimY = 40;
@@ -1113,10 +1099,10 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        // Execute movement
+        //
         carRunning = car.executeMovement(world);
         
-        // Check if car is out of bounds
+        // ελεγχω αν το αμαξι ειναι εκτος οριων 
         if (!world.inBounds(car.getPosition().x, car.getPosition().y)) {
             cout << "\n!!! CAR WENT OUT OF BOUNDS !!!" << endl;
             simulationRunning = false;
@@ -1127,9 +1113,6 @@ int main(int argc, char* argv[]) {
         if (tick % 10 == 0 || tick == ticks - 1) {
             visualization_pov(world, car, 5);
         }
-        
-        // Small delay for better visualization
-        usleep(100000); // 100ms
     }
     
     // Final visualization
