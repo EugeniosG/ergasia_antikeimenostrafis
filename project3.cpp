@@ -976,7 +976,7 @@ int main(int argc, char* argv[]) {
         cout << "Try --help for usage information" << endl;
         return 1;
     }
-    .
+    
     if (destinations.empty()) {
         cout << "ERROR: At least one GPS coordinate required!" << endl;
         return 1;
