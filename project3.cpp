@@ -423,7 +423,7 @@ public:
     
     void update(int tick) override {
         tickCounter++;
-        // Light cycle: RED(4) -> GREEN(8) -> YELLOW(2) -> RED
+        // κυκλοι φαναριου : κοκκινο -> 4 ticks - πρασινο -> 8 ticks - κιτρινο -> 2 ticks
         if (state == "RED" && tickCounter >= 4) {
             state = "GREEN";
             tickCounter = 0;
@@ -480,7 +480,7 @@ class Bike : public MovingObject {
 public:
     Bike(Position pos) 
         : MovingObject("Bike", Object::getNextId("Bike"), "B", pos, 1, "N") {
-        // Random direction
+        // χρησημοποιω το rand() για να εχει τυχαι αρχικη κατευθηνση το ποδηλατο
         vector<string> dirs = {"N", "S", "E", "W"};
         direction = dirs[rand() % 4];
         cout << "[+BIKE: " << getID() << "] Created at (" << pos.x << "," << pos.y 
@@ -498,7 +498,7 @@ class OtherCar : public MovingObject {
 public:
     OtherCar(Position pos) 
         : MovingObject("Car", Object::getNextId("Car"), "C", pos, 1, "N") {
-        // Random direction
+        // χρησημοποιω το rand() για να εχει τυχαια αρχικη κατευθηνση το κινημενο αυτοκινητο
         vector<string> dirs = {"N", "S", "E", "W"};
         direction = dirs[rand() % 4];
         cout << "[+CAR: " << getID() << "] Initialized at (" << pos.x << "," << pos.y 
@@ -536,12 +536,12 @@ public:
             double totalConfidence = 0.0;
             int count = 0;
             
-            // Combine readings for same object
+            // εννονω τα δεδομενα για το ιδιο αντικειμενο
             for (const auto& r : readings) {
                 totalConfidence += r.confidence;
                 count++;
                 
-                // For special properties, take from highest confidence
+            
                 if (r.confidence > fused.confidence) {
                     if (!r.trafficLight.empty()) fused.trafficLight = r.trafficLight;
                     if (!r.signText.empty()) fused.signText = r.signText;
@@ -554,7 +554,6 @@ public:
             
             fused.confidence = totalConfidence / count;
             
-            // Apply threshold, but never reject bikes
             bool isBike = readings[0].objectType == "Bike";
             if (fused.confidence >= minConfidenceThreshold || isBike) {
                 fusedResults.push_back(fused);
@@ -977,7 +976,7 @@ int main(int argc, char* argv[]) {
         cout << "Try --help for usage information" << endl;
         return 1;
     }
-    
+    .
     if (destinations.empty()) {
         cout << "ERROR: At least one GPS coordinate required!" << endl;
         return 1;
@@ -1006,10 +1005,9 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     
-    // Populate world with objects
     vector<string> directions = {"N", "S", "E", "W"};
     
-    // Add bikes
+    // προσθετω στον κοσμο τα ποδηλατα
     for (int i = 0; i < MovingBikes; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         // Ensure not on car position
@@ -1019,7 +1017,7 @@ int main(int argc, char* argv[]) {
         world.addObject(new Bike(pos));
     }
     
-    // Add other cars
+    // προσθετω στον κοσμο τα υπολοιπα κινουμενα αυτοκινητα
     for (int i = 0; i < MovingCars; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
@@ -1028,7 +1026,7 @@ int main(int argc, char* argv[]) {
         world.addObject(new OtherCar(pos));
     }
     
-    // Add parked cars
+    // προσθετω στον κοσμο τα παρκαριμενα αυτοκινητα
     for (int i = 0; i < ParkedCars; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
@@ -1037,7 +1035,7 @@ int main(int argc, char* argv[]) {
         world.addObject(new ParkedCar(pos));
     }
     
-    // Add stop signs
+    // προσθετω στον κοσμο τα σηματα STOP
     for (int i = 0; i < STOP; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
@@ -1046,7 +1044,7 @@ int main(int argc, char* argv[]) {
         world.addObject(new StopSign(pos));
     }
     
-    // Add traffic lights
+    // προσθετω στιν κοσμο τα φαναρια
     for (int i = 0; i < TrafficLights; i++) {
         Position pos(rand() % dimX, rand() % dimY);
         while (pos.x == car.getPosition().x && pos.y == car.getPosition().y) {
@@ -1055,36 +1053,17 @@ int main(int argc, char* argv[]) {
         world.addObject(new TrafficLight(pos));
     }
     
-    // Display simulation info
-    cout << "\n=== SIMULATION PARAMETERS ===" << endl;
-    cout << "World Size: " << dimX << "x" << dimY << endl;
-    cout << "Starting Position: (" << destinations[0].x << "," << destinations[0].y << ")" << endl;
-    cout << "GPS Targets: " << destinations.size() - 1 << endl;
-    for (size_t i = 1; i < destinations.size(); i++) {
-        cout << "  Target " << i << ": (" << destinations[i].x << "," << destinations[i].y << ")" << endl;
-    }
-    cout << "Moving Cars: " << MovingCars << endl;
-    cout << "Moving Bikes: " << MovingBikes << endl;
-    cout << "Parked Cars: " << ParkedCars << endl;
-    cout << "Stop Signs: " << STOP << endl;
-    cout << "Traffic Lights: " << TrafficLights << endl;
-    cout << "Simulation Ticks: " << ticks << endl;
-    cout << "Min Confidence: " << (minConfidenceThreshold * 100) << "%" << endl;
-    cout << "Random Seed: " << seed << endl;
-    
-    // Initial visualization
+    // εκτυπωνωψ την πληρη εικονα του κοσμου με την συναρτηση visualization_full
     visualization_full(world, car);
     
     bool simulationRunning = true;
     bool carRunning = true;
     
     for (int tick = 0; tick < ticks && simulationRunning && carRunning; tick++) {
-        cout << "\n=== TICK " << tick << " ===" << endl;
         
-        // Update all world objects
+        // ενημερωση των αντικειμενων του κοσμου 
         world.updateAll(tick);
         
-        // Move other vehicles
         vector<Object*> objects = world.getObjects();
         for (auto obj : objects) {
             if (Bike* bike = dynamic_cast<Bike*>(obj)) {
