@@ -7,13 +7,14 @@
 #include <cmath>
 #include <algorithm>
 #include <map>
-#include <unistd.h> // for usleep
+#include <unistd.h> 
 using namespace std;
 
-// Forward declarations
+// κανω declare απο πριν τις κλάσεις που θα χρειαστω
 class GridWorld;
 class Object;
 
+//struct για την θεση αντικειμενων στον κοσμο
 struct Position {
     int x;                                  
     int y;
@@ -33,6 +34,7 @@ struct Position {
     }
 };
 
+//struct για την ταυτοτητα των αντικειμενων
 struct ID {
     string type;
     int num;
@@ -41,7 +43,7 @@ struct ID {
         return type + ":" + to_string(num);
     }
 };
-
+//struct για την αποθηκευση των αναγνωσεων των αισθητηρων
 struct SensorReading {
     string objectType;
     Position position;
@@ -66,6 +68,7 @@ struct SensorReading {
     }
 };
 
+//βασικη κλαση για τους αισθητηρες 
 class Sensor {
 protected:
     Position position;
@@ -93,6 +96,7 @@ public:
 
 int Sensor::sensorCounter = 0;
 
+//βασικη κλαση για ολα τα αντικειμενα στον κοσμο
 class Object {
 protected:
     Position position;
@@ -116,7 +120,8 @@ public:
     virtual Position getPosition() const { 
         return position;
     }
-    
+
+    //ολα τα getters
     virtual string getType() const = 0;
     virtual string getID() const { return id.toString(); }
     virtual string getGlyph() const { return glyph; }
@@ -134,6 +139,7 @@ public:
 
 map<string, int> Object::objectCounters;
 
+//κλασση που αντιπροσοπευει τον κοσμο της προσομοιωσης
 class GridWorld {
 private:
     int dimX, dimY;
@@ -176,12 +182,14 @@ public:
     int getDimX() const { return dimX; }
     int getDimY() const { return dimY; }
     
+    //συναρτηση που καλει την update ολων των αντικειμενων
     void updateAll(int tick) {
         for (auto obj : objects) {
             obj->update(tick);
         }
     }
     
+    //συναρτηση για την αφαιρεση αντικειμενων απο τον κοσμο
     void removeObject(Object* obj) {
         auto it = find(objects.begin(), objects.end(), obj);
         if (it != objects.end()) {
@@ -191,6 +199,7 @@ public:
     }
 };
 
+//κλάση για αισθητηρα lidar
 class LidarSensor : public Sensor {
 public:
     LidarSensor(int x, int y) : Sensor("LIDAR", x, y) {
@@ -236,6 +245,7 @@ public:
     }
 };
 
+//κλάση για αισθητηρα radar
 class RadarSensor : public Sensor {
 public:
     RadarSensor(int x, int y) : Sensor("RADAR", x, y) {
@@ -255,7 +265,7 @@ public:
             int dx = pos.x - carX;
             int dy = pos.y - carY;
 
-            // Check if object is in front based on car direction
+            //τσεκαρω αν το αντικειμενο ειναι μπροστα απο το αυτοκινητο
             bool inFront = false;
             int frontDistance = 0;
             
@@ -273,6 +283,7 @@ public:
                 frontDistance = abs(dy);
             }
             
+            //αν ειναι μπροστα και μεσα στο range και κινητο το εντοπιζω
             if (inFront && frontDistance <= range && obj->getSpeed() > 0) {
                 SensorReading reading;
                 reading.objectType = obj->getType();
@@ -296,6 +307,7 @@ public:
     }
 };
 
+//κλάση για αισθητηρα camera
 class CameraSensor : public Sensor {
 public:
     CameraSensor(int x, int y) : Sensor("CAMERA", x, y) {
@@ -315,12 +327,14 @@ public:
             int dx = pos.x - carX;
             int dy = pos.y - carY;
             
+            //τσεκαρω αν το αντικειμενο ειναι μπροστα απο το αυτοκινητο
             bool inView = false;
             if (carDir == "E" && dx > 0 && dx <= range && abs(dy) <= range) inView = true;
             else if (carDir == "W" && dx < 0 && abs(dx) <= range && abs(dy) <= range) inView = true;
             else if (carDir == "N" && dy > 0 && dy <= range && abs(dx) <= range) inView = true;
             else if (carDir == "S" && dy < 0 && abs(dy) <= range && abs(dx) <= range) inView = true;
 
+            //αν ειναι μπροστα και μεσα στο range το εντοπιζω
             if (inView) {
                 SensorReading reading;
                 reading.objectType = obj->getType();
@@ -346,6 +360,7 @@ public:
     }
 };
 
+//βασικη κλαση για κινητα αντικειμενα
 class StaticObject : public Object {
 public:
     StaticObject(string type, int num, string glyph, Position pos) 
@@ -355,6 +370,7 @@ public:
     ~StaticObject() {}
 };
 
+//κλάση για παρκαρισμενα αυτοκινητα
 class ParkedCar : public StaticObject {
 public:
     ParkedCar(Position pos) 
